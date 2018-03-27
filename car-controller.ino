@@ -62,16 +62,16 @@ void setup() {
   pinMode(SLEEP, OUTPUT); pinMode(FAULT, INPUT);
 
   // DRV registers
-  sailboat.setTBlank(0xC1);
-  sailboat.setTOff(0x13));
+  sailboat.setTBlank(0xC1); // 3us
+  sailboat.setTOff(0x13)); // 10us
   sailboat.setISGain(5);
   sailboat.setTorque(0x8C);
   
-  //TDRIVEN and P
+  //TDRIVEN and P (ns)
   sailboat.setGDSinkTime(263);
   sailboat.setGDSourceTime(263);
 
-  // IDRIVEN and P
+  // IDRIVEN and P (mA)
   sailboat.setGDSinkPkCurrent(100);
   sailboat.setGDSourcePkCurrent(50);
  
