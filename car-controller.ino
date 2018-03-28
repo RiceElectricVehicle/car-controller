@@ -49,8 +49,21 @@ void setup() {
   Serial.begin(115200); 
   
   // set PWM Frequency for PWM outputs
-  TCCR0B = TCCR0B & B11111000 | B00000001;    // set timer 0 divisor to 1 for PWM frequency of 62500.00 Hz (pins 5-6)
-  TCCR1B = TCCR1B & B11111000 | B00000001;    // set timer 1 divisor to 1 for PWM frequency of 31372.55 Hz (pins 9-10)
+  // TIMER/COUNTER 0
+  // PIN 6(OC0A) = NON-INVERTED [_BV(COM0A1)]
+  // PIN 5(OC0B) = NON-INVERTED [_BV(COM0B1)
+  // PWM MODE    = FAST PWM     [_BV(WGM01) | _BV(WGM00)]
+  // PRESCALER   = 1            [_BV(CS00)]
+  TCCR0A = _BV(COM0A1) | _BV(COM0B1) | _BV(WGM01) | _BV(WGM00); 
+  TCCR0B = _BV(CS00); 
+
+  // TIMER/COUNTER 1
+  // PIN 9(OC1A)  = NON-INVERTED [_BV(COM1A1)]
+  // PIN 10(OC1B) = NON-INVERTED [_BV(COM1B1)]
+  // PWM MODE     = FAST PWM 8BIT[_BV(WGM12) | _BV(WGM10)]
+  // PRESCALER    = 1            [_BV(CS10)]
+  TCCR1A = _BV(COM1A1) | _BV(COM1B1) | _BV(WGM10); 
+  TCCR1B = _BV(WGM12) | _BV(CS10);
 
   // SPI Pins
   pinMode(SCS, OUTPUT); pinMode(MOSI, OUTPUT); pinMode(MISO, OUTPUT); pinMode(CLK, OUTPUT); 
@@ -63,7 +76,7 @@ void setup() {
 
   // DRV registers
   sailboat.setTBlank(0xC1); // 3us
-  sailboat.setTOff(0x13)); // 10us
+  sailboat.setTOff(0x13); // 10us
   sailboat.setISGain(5);
   sailboat.setTorque(0x8C);
   
@@ -81,6 +94,8 @@ void setup() {
 
 void loop() {
   
+  // TODO: Check PWM performance
+
   // TODO: calculate setPower based on pedal position AND pedal position rate of change
   // TODO: caclulcate currentPower based on motors' voltages and currents
   // TODO: run PID.compute()
