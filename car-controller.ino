@@ -48,7 +48,7 @@ PID control(&currentPower, &newPower, &setPower, Kp, Ki, Kd, DIRECT);
 void setup() {
   Serial.begin(115200); 
   
-  // set PWM Frequency for PWM outputs
+  // set PWM Frequency for PWM outputs to 62.5 kHz
   // TIMER/COUNTER 0
   // PIN 6(OC0A) = NON-INVERTED [_BV(COM0A1)]
   // PIN 5(OC0B) = NON-INVERTED [_BV(COM0B1)
@@ -88,6 +88,9 @@ void setup() {
   sailboat.setGDSinkPkCurrent(100);
   sailboat.setGDSourcePkCurrent(50);
  
+  // PWM duty cycle controlled with: 
+  // pin 5-6: OCR0A/B
+  // pin 9-10: OCR1A/B (dont know which is A or B).
 
 
 }
