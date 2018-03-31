@@ -4,7 +4,7 @@
 #include <SPI.h>
 
 // SPI pins
-#define SCS 8 // pin 10 is used for PWM
+#define SCS 8
 #define MOSI 11
 #define MISO 12
 #define CLK 13
@@ -23,8 +23,8 @@
 #define PEDAL A0
 #define I1 A1
 #define I2 A2
-#define Hall_left 3
-#define Hall_right 2
+#define hall_1 3
+#define hall_2 2
 
 // PID coefficients (what are we doiiiing?)
 const double Kp = 0.5;
@@ -41,7 +41,6 @@ double new_power_2;
 
 
 // Other PID variables
-
 const int MAX_POWER_RATE_THRESHOLD = 500;
 const int KV = 78; //relates rpm and voltage
 
@@ -63,13 +62,27 @@ drv sailboat(MOSI, MISO, CLK, SCS, LED);
 PID control_1(&current_power_1, &new_power_1, &setPower, Kp, Ki, Kd, DIRECT);
 PID control_2(&current_power_2, &new_power_2, &setPower, Kp, Ki, Kd, DIRECT);
 
-control_1.SetSampleTime(64 * 200);
-control_2.SetSampleTime(64 * 200); //update timings to account for change to Timer 0;
+
 
 
 
 void setup() {
   Serial.begin(9600); 
+
+  // SPI Pins
+  pinMode(SCS, OUTPUT); pinMode(MOSI, OUTPUT); pinMode(MISO, OUTPUT); pinMode(CLK, OUTPUT); 
+  
+  // PWM Pins
+  pinMode(AIN1, OUTPUT); pinMode(AIN2, OUTPUT); pinMode(BIN1, OUTPUT); pinMode(BIN2, OUTPUT); 
+
+  // general DRV pins
+  pinMode(SLEEP, OUTPUT); pinMode(FAULT, INPUT);
+
+  // hall 
+  pinMode(hall_left, INPUT); pinMode(hall_right, INPUT);
+
+  // wake up
+  digitalWrite(SLEEP, HIGH);
   
   // set PWM Frequency for PWM outputs to 62.5 kHz
   // TIMER/COUNTER 0
@@ -88,17 +101,7 @@ void setup() {
   TCCR1A = _BV(COM1A1) | _BV(COM1B1) | _BV(WGM10); 
   TCCR1B = _BV(WGM12) | _BV(CS10);
 
-  // SPI Pins
-  pinMode(SCS, OUTPUT); pinMode(MOSI, OUTPUT); pinMode(MISO, OUTPUT); pinMode(CLK, OUTPUT); 
-  
-  // PWM Pins
-  pinMode(AIN1, OUTPUT); pinMode(AIN2, OUTPUT); pinMode(BIN1, OUTPUT); pinMode(BIN2, OUTPUT); 
 
-  // general DRV pins
-  pinMode(SLEEP, OUTPUT); pinMode(FAULT, INPUT);
-
-  // wake up
-  digitalWrite(SLEEP, HIGH);
 
   // DRV registers
   sailboat.setTBlank(0xC1); // 3us
@@ -113,23 +116,10 @@ void setup() {
   // IDRIVEN and P (mA)
   sailboat.setIDriveN(100);
   sailboat.setIDriveP(50);
- 
-  // PWM duty cycle controlled with: 
-  // pin 5-6: OCR0A/B
-  // pin 9-10: OCR1A/B  A = 9 B = 10
-  unsigned int read1 = sailboat.read(0x00);
-  Serial.println(read1);
 
-  // pin 9
-  OCR1A = 250;
-  //pin 10 
-  OCR1B = 128;
-  // OCR0A
-  // OCR0B
-
-  // for(OCR1B = 0; OCR1B <= 245; OCR1B++){
-  //   delay(2000);
-  // }
+  //update timings to account for change to Timer 0;
+  control_1.SetSampleTime(64 * 200);
+  control_2.SetSampleTime(64 * 200); 
 
   // set up interrupts and variables for hall effect sensors
   attachInterrupt(1, hall_1_ISR, CHANGE); //maps to pin 3
@@ -142,10 +132,6 @@ void setup() {
   time_old_2 = 0;
 
 }
-
-int x;
-int y;
-
 
 void loop() {
 
