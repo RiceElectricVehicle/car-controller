@@ -140,7 +140,14 @@ void loop() {
   analogWrite(10, y);
 
 
-// RPM determination 
+/* 
+
+RPM determination (millis() func returns 1/64 of millis after Timer 0 manipulation)
+
+        #rotations            5 * (rev_count)
+RPM =  -------------- =  ----------------------------
+        time elapsed      millis() * 64 * 1000 * 60
+*/
 
 if(rev_count_left >= 5){
   rpm_left = (5 * rev_count_left) / (64000 * 60 * (millis() - time_old_left)); 
