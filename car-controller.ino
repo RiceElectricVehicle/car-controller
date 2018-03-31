@@ -34,25 +34,26 @@ const double Kd = 0.05;
 // PID setpoint, input, output
 double inputPower; //power of current pedal value
 double setPower; //setpoint of power 
-double currentPower; //current power of motor
+double current_power_1; //current power of motor
+double current_power_2;
 double newPower;  //power output of PID
 
 
 // Other PID variables
 
 const int MAX_POWER_RATE_THRESHOLD = 500;
-
+const int KV = 78; //relates rpm and voltage
 
 
 // Hall Effect Sensor variables
-volatile byte rev_count_left;
-volatile byte rev_count_right;
+volatile byte rev_count_1;
+volatile byte rev_count_2;
 
-unsigned int rpm_left; 
-unsigned int rpm_right; 
+unsigned int rpm_1; 
+unsigned int rpm_2; 
 
-unsigned int time_old_left;
-unsigned int time_old_right;
+unsigned int time_old_1;
+unsigned int time_old_2;
 
 
 // initialize some useful objects
@@ -125,14 +126,14 @@ void setup() {
   //   delay(2000);
   // }
 
-  attachInterrupt(1, hall_left_ISR, CHANGE);
-  attachInterrupt(0, hall_right_ISR, CHANGE);
-  rev_count_left = 0;
-  rev_count_right = 0;
-  rpm_left = 0;
-  rpm_right = 0;
-  time_old_left = 0;
-  time_old_right = 0;
+  attachInterrupt(1, hall_1_ISR, CHANGE);
+  attachInterrupt(0, hall_2_ISR, CHANGE);
+  rev_count_1 = 0;
+  rev_count_2 = 0;
+  rpm_1 = 0;
+  rpm_2 = 0;
+  time_old_1 = 0;
+  time_old_2 = 0;
 
 }
 
@@ -156,17 +157,17 @@ RPM =  -------------- =  ----------------------------
         time elapsed      millis() * 64 * 1000 * 60
 */
 
-if(rev_count_left >= 5){
-  rpm_left = (5 * rev_count_left) / (64000 * 60 * (millis() - time_old_left)); 
-  time_old_left = millis();
-  rev_count_left = 0;
+if(rev_count_1 >= 5){
+  rpm_1 = (5 * rev_count_1) / (64000 * 60 * (millis() - time_old_1)); 
+  time_old_1 = millis();
+  rev_count_1 = 0;
 }
 
 
-if(rev_count_right >= 5){
-  rpm_right = (5 * rev_count_right) / (64000 * 60 * (millis() - time_old_right));
-  time_old_right = millis();
-  rev_count_right = 0;
+if(rev_count_2 >= 5){
+  rpm_2 = (5 * rev_count_2) / (64000 * 60 * (millis() - time_old_2));
+  time_old_2 = millis();
+  rev_count_2 = 0;
 }
 
   // TODO: Check PWM performance
@@ -189,11 +190,13 @@ setPower = inputPower;
 
 
 
-
-
-
-
   // TODO: caclulcate currentPower based on motors' voltages and currents
+
+current_power_1 = I1 * rpm_1 * KV;
+
+current_power_2 = I2 * rpm_2 * KV;
+
+
   // TODO: run PID.compute()
   // TODO: map newPower to pwm signals (need logic for forward, reverse, coasting)
 
@@ -205,7 +208,7 @@ void hall_left_detect_ISR(){
   Increment hall effect sensor counter on left side
   */
 
-rev_count_left++;
+rev_count_1++;
 Serial.println("LEFT 1 RPM");
 
 }
@@ -215,7 +218,7 @@ void hall_right_detect_ISR(){
   Increment hall effect sensor counter on right side 
   */
 
-rev_count_right++;
+rev_count_2++;
 Serial.println("RIGHT 1 RPM");
 
 }
