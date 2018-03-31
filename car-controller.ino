@@ -34,14 +34,15 @@ const double Ki = 0.001;
 const double Kd = 0.05;
 
 // PID setpoint, input, output
-double setPower;
-double currentPower;
-double newPower;
+double throttle_setpoint;
+double throttle_new;
 
 // initialize some useful objects
 Logger genLog("REV", "info");
 drv sailboat(MOSI, MISO, CLK, SCS, LED);
-PID control(&currentPower, &newPower, &setPower, Kp, Ki, Kd, DIRECT);
+
+//PID won't be used for this one
+//PID control(&currentPower, &newPower, &setPower, Kp, Ki, Kd, DIRECT);
 
 
 
@@ -103,6 +104,32 @@ void loop() {
   // TODO: caclulcate currentPower based on motors' voltages and currents
   // TODO: run PID.compute()
   // TODO: map newPower to pwm signals (need logic for forward, reverse, coasting)
+
+
+  // read pedal input
+  throttle_setpoint = analogRead(PEDAL);
+
+  // map throttle to range 0-255
+  if(throttle_setpoint < 380){
+    throttle_new = 0;
+  }
+  else{
+    throttle_new = map(throttle_setpoint, 380, 1023, 0, 255)
+  }
+
+  throttle_new = pow(throttle_new, 2) / 255; 
+
+
+  // write PWM to both motors 
+  analogWrite(AIN1, throttle_new);
+  analogWrite(BIN1, throttle_new);
+
+  // write 0 to xIN2 to go forward
+  analogWrite(AIN2, 0);
+  analogWrite(BIN2, 0);
+
+
+
 
 }
 
