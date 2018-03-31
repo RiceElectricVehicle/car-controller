@@ -32,9 +32,20 @@ const double Ki = 0.001;
 const double Kd = 0.05;
 
 // PID setpoint, input, output
-double setPower;
-double currentPower;
-double newPower;
+double inputPower; //power of current pedal value
+double setPower; //setpoint of power 
+double currentPower; //current power of motor
+double newPower;  //power output of PID
+
+double lastSetPower; //setPower one value ago
+double powerDifference; //defined as setPower - lastSetPower
+double inputPowerLast5; //setPower 5 values ago
+int power_increment; // internal variable keeps track of 5 power values
+
+// Other PID variables
+
+const int MAX_POWER_RATE_THRESHOLD = 500;
+
 
 
 // Hall Effect Sensor variables
@@ -165,6 +176,44 @@ if(rev_count_right >= 5){
   // TODO: Check PWM performance
 
   // TODO: calculate setPower based on pedal position AND pedal position rate of change
+
+/*
+
+setPower is:
+  linear map to motor rated power (0 to 1000W) IF rate of depression is not greater than MAX_POWER_RATE_THRESHOLD
+
+  1200W if rate of depression is greater than MAX_POWER_RATE_THRESHOLD.
+
+*/
+
+
+inputPower = map(analogRead(PEDAL), 380, 720, 0, 1000);
+inputPower = constrain(setPower, 0, 1000);
+
+// store power value five values ago in inputPowerLast5
+power_increment++; 
+
+if(power_increment == 5){
+  inputPowerLast5 = inputPower;
+}
+
+// determine if pedal depression is signficant relative to past values
+power_difference = inputPower - inputPowerLast5;
+
+// assign setPower based on results
+if(power_difference > MAX_POWER_RATE_THRESHOLD){
+  setPower = 1200;
+}
+else{
+  setPower = inputPower;
+}
+
+
+
+
+
+
+
   // TODO: caclulcate currentPower based on motors' voltages and currents
   // TODO: run PID.compute()
   // TODO: map newPower to pwm signals (need logic for forward, reverse, coasting)
@@ -178,8 +227,7 @@ void hall_left_detect_ISR(){
   */
 
 rev_count_left++;
-Serial.println("LEFT 1 RPM")
-
+Serial.println("LEFT 1 RPM");
 
 }
 
@@ -189,7 +237,7 @@ void hall_right_detect_ISR(){
   */
 
 rev_count_right++;
-Serial.println("RIGHT 1 RPM")
+Serial.println("RIGHT 1 RPM");
 
 }
 
