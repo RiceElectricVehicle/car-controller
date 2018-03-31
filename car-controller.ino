@@ -23,8 +23,8 @@
 #define PEDAL A0
 #define I1 A1
 #define I2 A2
-#define Hall1 3
-#define Hall2 2
+#define Hall_left 3
+#define Hall_right 2
 
 // PID coefficients (what are we doiiiing?)
 const double Kp = 0.5;
@@ -35,6 +35,18 @@ const double Kd = 0.05;
 double setPower;
 double currentPower;
 double newPower;
+
+
+// Hall Effect Sensor variables
+volatile byte rev_count_left;
+volatile byte rev_count_right;
+
+unsigned int rpm_left; 
+unsigned int rpm_right; 
+
+unsigned int time_old_left;
+unsigned int time_old_right;
+
 
 // initialize some useful objects
 Logger genLog("REV", "info");
@@ -106,17 +118,39 @@ void setup() {
   //   delay(2000);
   // }
 
-
+  attachInterrupt(1, hall_left_ISR, CHANGE);
+  attachInterrupt(0, hall_right_ISR, CHANGE);
+  half_revolutions = 0;
+  rpm = 0;
+  time_old = 0;
 
 }
 
 int x;
 int y;
+
+
 void loop() {
 
   y = map(analogRead(A0), 0, 1023, 0, 255);
   
   analogWrite(10, y);
+
+
+// RPM determination 
+
+if(rev_count_left >= 5){
+  rpm_left = (5 * rev_count_left) / (millis() - time_old_left); 
+  time_old_left = millis();
+  rev_count_left = 0;
+}
+
+
+if(rev_count_right >= 5){
+  rpm_right = (5 * rev_count_right) / (millis() - time_old_right);
+  time_old_right = millis();
+  rev_count_right = 0;
+}
 
   // TODO: Check PWM performance
 
@@ -127,4 +161,25 @@ void loop() {
 
 }
 
+
+void hall_left_detect_ISR(){
+  /*
+  Increment hall effect sensor counter on left side
+  */
+
+rev_count_left++;
+Serial.println("LEFT 1 RPM")
+
+
+}
+
+void hall_right_detect_ISR(){
+  /*
+  Increment hall effect sensor counter on right side 
+  */
+
+rev_count_right++;
+Serial.println("RIGHT 1 RPM")
+
+}
 
