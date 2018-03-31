@@ -59,7 +59,11 @@ unsigned int time_old_2;
 // initialize some useful objects
 Logger genLog("REV", "info");
 drv sailboat(MOSI, MISO, CLK, SCS, LED);
-PID control(&currentPower, &newPower, &setPower, Kp, Ki, Kd, DIRECT);
+PID control_1(&current_power_1, &newPower, &setPower, Kp, Ki, Kd, DIRECT);
+PID control_2(&current_power_2, &newPower, &setPower, Kp, Ki, Kd, DIRECT);
+
+control_1.SetSampleTime(64 * 200);
+control_2.SetSampleTime(64 * 200); //update timings to account for change to Timer 0;
 
 
 
@@ -198,6 +202,11 @@ current_power_2 = I2 * rpm_2 * KV;
 
 
   // TODO: run PID.compute()
+
+control_1.compute(); //these will only change value 
+control_2.compute();
+
+
   // TODO: map newPower to pwm signals (need logic for forward, reverse, coasting)
 
 }
