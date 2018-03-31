@@ -14,6 +14,8 @@
 #define AIN2 9
 #define BIN1 6
 #define BIN2 5
+int pwm_1;
+int pwm_2;
 
 // MISC pins
 #define SLEEP 7
@@ -27,9 +29,9 @@
 #define hall_2 2
 
 // PID coefficients (what are we doiiiing?)
-const double Kp = 0.5;
+const double Kp = 0.05;
 const double Ki = 0.001;
-const double Kd = 0.05;
+const double Kd = 0.005;
 
 // PID setpoint, input, output
 double inputPower; //power of current pedal value
@@ -42,7 +44,8 @@ double new_power_2;
 
 // Other PID variables
 const int MAX_POWER_RATE_THRESHOLD = 500;
-const int KV = 78; //relates rpm and voltage
+// 78 rpm/volt => 1/78 volt/rmp
+const int KV = 78; 
 
 
 // Hall Effect Sensor variables
@@ -58,7 +61,7 @@ unsigned int time_old_2;
 
 // initialize some useful objects
 Logger genLog("REV", "info");
-drv sailboat(MOSI, MISO, CLK, SCS, LED);
+drv sailboat(MOSI, MISO, CLK, SCS, 0);
 PID control_1(&current_power_1, &new_power_1, &setPower, Kp, Ki, Kd, DIRECT);
 PID control_2(&current_power_2, &new_power_2, &setPower, Kp, Ki, Kd, DIRECT);
 
@@ -79,7 +82,7 @@ void setup() {
   pinMode(SLEEP, OUTPUT); pinMode(FAULT, INPUT);
 
   // hall 
-  pinMode(hall_left, INPUT); pinMode(hall_right, INPUT);
+  pinMode(hall_1, INPUT); pinMode(hall_2, INPUT);
 
   // wake up
   digitalWrite(SLEEP, HIGH);
@@ -144,14 +147,14 @@ void loop() {
   
 
   if(rev_count_1 >= 5){
-    rpm_1 = (5 * rev_count_1) / (64000 * 60 * (millis() - time_old_1)); 
+    rpm_1 = rev_count_1 / (64 * (millis() - time_old_1)/(1000*60)); 
     time_old_1 = millis();
     rev_count_1 = 0;
   }
 
 
   if(rev_count_2 >= 5){
-    rpm_2 = (5 * rev_count_2) / (64000 * 60 * (millis() - time_old_2));
+    rpm_2 = rev_count_2/ (64 * (millis() - time_old_1)/(1000*60));
     time_old_2 = millis();
     rev_count_2 = 0;
   }
@@ -161,7 +164,6 @@ void loop() {
   
   // Calculate set_power
   // setPower is: linear map to motor rated power (0 to 1000W
-
   inputPower = map(analogRead(PEDAL), 380, 720, 0, 1000);
   inputPower = constrain(setPower, 0, 1000); 
 
@@ -169,15 +171,13 @@ void loop() {
 
   // TODO: caclulcate currentPower based on motors' voltages and currents
 
-  current_power_1 = I1 * rpm_1 * KV;
+  current_power_1 = I1 * rpm_1 * 1/KV;
 
-  current_power_2 = I2 * rpm_2 * KV;
+  current_power_2 = I2 * rpm_2 * 1/KV;
 
-
-  // TODO: run PID.compute()
-
-  control_1.compute(); //generate new_power values
-  control_2.compute();
+  //generate new_power values
+  control_1.Compute(); 
+  control_2.Compute();
 
   // TODO: map new_power to pwm signals (need logic for forward, reverse, coasting)
 
@@ -196,7 +196,7 @@ void loop() {
   }
 
 
-void hall_left_detect_ISR(){
+void hall_1_ISR(){
   /*
   Increment hall effect sensor counter on left side
   */
@@ -205,7 +205,7 @@ void hall_left_detect_ISR(){
 
 }
 
-void hall_right_detect_ISR(){
+void hall_2_ISR(){
   /*
   Increment hall effect sensor counter on right side 
   */
