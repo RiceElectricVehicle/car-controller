@@ -190,23 +190,7 @@ setPower is:
 inputPower = map(analogRead(PEDAL), 380, 720, 0, 1000);
 inputPower = constrain(setPower, 0, 1000);
 
-// store power value five values ago in inputPowerLast5
-power_increment++; 
-
-if(power_increment == 5){
-  inputPowerLast5 = inputPower;
-}
-
-// determine if pedal depression is signficant relative to past values
-power_difference = inputPower - inputPowerLast5;
-
-// assign setPower based on results
-if(power_difference > MAX_POWER_RATE_THRESHOLD){
-  setPower = 1200;
-}
-else{
-  setPower = inputPower;
-}
+setPower = inputPower;
 
 
 
