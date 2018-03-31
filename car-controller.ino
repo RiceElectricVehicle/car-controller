@@ -36,7 +36,8 @@ double inputPower; //power of current pedal value
 double setPower; //setpoint of power 
 double current_power_1; //current power of motor
 double current_power_2;
-double newPower;  //power output of PID
+double new_power_1;  //power output of PID
+double new_power_2;
 
 
 // Other PID variables
@@ -59,8 +60,8 @@ unsigned int time_old_2;
 // initialize some useful objects
 Logger genLog("REV", "info");
 drv sailboat(MOSI, MISO, CLK, SCS, LED);
-PID control_1(&current_power_1, &newPower, &setPower, Kp, Ki, Kd, DIRECT);
-PID control_2(&current_power_2, &newPower, &setPower, Kp, Ki, Kd, DIRECT);
+PID control_1(&current_power_1, &new_power_1, &setPower, Kp, Ki, Kd, DIRECT);
+PID control_2(&current_power_2, &new_power_2, &setPower, Kp, Ki, Kd, DIRECT);
 
 control_1.SetSampleTime(64 * 200);
 control_2.SetSampleTime(64 * 200); //update timings to account for change to Timer 0;
@@ -130,8 +131,9 @@ void setup() {
   //   delay(2000);
   // }
 
-  attachInterrupt(1, hall_1_ISR, CHANGE);
-  attachInterrupt(0, hall_2_ISR, CHANGE);
+  // set up interrupts and variables for hall effect sensors
+  attachInterrupt(1, hall_1_ISR, CHANGE); //maps to pin 3
+  attachInterrupt(0, hall_2_ISR, CHANGE); //pin 2
   rev_count_1 = 0;
   rev_count_2 = 0;
   rpm_1 = 0;
@@ -147,69 +149,66 @@ int y;
 
 void loop() {
 
-  y = map(analogRead(A0), 0, 1023, 0, 255);
   
-  analogWrite(10, y);
+  // RPM determination (millis() func returns 1/64 of millis after Timer 0 manipulation)
+  //
+  //         #rotations            5 * (rev_count)
+  // RPM =  -------------- =  ----------------------------
+  //         time elapsed      millis() * 64 * 1000 * 60
+  
+
+  if(rev_count_1 >= 5){
+    rpm_1 = (5 * rev_count_1) / (64000 * 60 * (millis() - time_old_1)); 
+    time_old_1 = millis();
+    rev_count_1 = 0;
+  }
 
 
-/* 
+  if(rev_count_2 >= 5){
+    rpm_2 = (5 * rev_count_2) / (64000 * 60 * (millis() - time_old_2));
+    time_old_2 = millis();
+    rev_count_2 = 0;
+  }
 
-RPM determination (millis() func returns 1/64 of millis after Timer 0 manipulation)
-
-        #rotations            5 * (rev_count)
-RPM =  -------------- =  ----------------------------
-        time elapsed      millis() * 64 * 1000 * 60
-*/
-
-if(rev_count_1 >= 5){
-  rpm_1 = (5 * rev_count_1) / (64000 * 60 * (millis() - time_old_1)); 
-  time_old_1 = millis();
-  rev_count_1 = 0;
-}
+    // TODO: Check PWM performance
 
 
-if(rev_count_2 >= 5){
-  rpm_2 = (5 * rev_count_2) / (64000 * 60 * (millis() - time_old_2));
-  time_old_2 = millis();
-  rev_count_2 = 0;
-}
+  
+  // Calculate set_power
+  // setPower is: linear map to motor rated power (0 to 1000W
 
-  // TODO: Check PWM performance
+  inputPower = map(analogRead(PEDAL), 380, 720, 0, 1000);
+  inputPower = constrain(setPower, 0, 1000); 
 
-  // TODO: calculate setPower based on pedal position AND pedal position rate of change
-
-/*
-
-setPower is:
-  linear map to motor rated power (0 to 1000W) IF rate of depression is not greater than MAX_POWER_RATE_THRESHOLD
-
-
-*/
-
-
-inputPower = map(analogRead(PEDAL), 380, 720, 0, 1000);
-inputPower = constrain(setPower, 0, 1000);
-
-setPower = inputPower;
-
-
+  setPower = inputPower;
 
   // TODO: caclulcate currentPower based on motors' voltages and currents
 
-current_power_1 = I1 * rpm_1 * KV;
+  current_power_1 = I1 * rpm_1 * KV;
 
-current_power_2 = I2 * rpm_2 * KV;
+  current_power_2 = I2 * rpm_2 * KV;
 
 
   // TODO: run PID.compute()
 
-control_1.compute(); //these will only change value 
-control_2.compute();
+  control_1.compute(); //generate new_power values
+  control_2.compute();
+
+  // TODO: map new_power to pwm signals (need logic for forward, reverse, coasting)
+
+  pwm_1 = map(new_power_1, 0, 1000, 0, 255);
+  pwm_2 = map(new_power_2, 0, 1000, 0, 255);
+
+  // Forward - write 0 to xIN2
+
+  analogWrite(AIN1, new_power_1);
+  analogWrite(BIN1, new_power_2);
+
+  analogWrite(AIN2, LOW);
+  analogWrite(BIN2, LOW);
 
 
-  // TODO: map newPower to pwm signals (need logic for forward, reverse, coasting)
-
-}
+  }
 
 
 void hall_left_detect_ISR(){
@@ -217,8 +216,7 @@ void hall_left_detect_ISR(){
   Increment hall effect sensor counter on left side
   */
 
-rev_count_1++;
-Serial.println("LEFT 1 RPM");
+  rev_count_1++;
 
 }
 
@@ -227,8 +225,7 @@ void hall_right_detect_ISR(){
   Increment hall effect sensor counter on right side 
   */
 
-rev_count_2++;
-Serial.println("RIGHT 1 RPM");
+  rev_count_2++;
 
 }
 
