@@ -120,9 +120,12 @@ void setup() {
 
   attachInterrupt(1, hall_left_ISR, CHANGE);
   attachInterrupt(0, hall_right_ISR, CHANGE);
-  half_revolutions = 0;
-  rpm = 0;
-  time_old = 0;
+  rev_count_left = 0;
+  rev_count_right = 0;
+  rpm_left = 0;
+  rpm_right = 0;
+  time_old_left = 0;
+  time_old_right = 0;
 
 }
 
@@ -140,14 +143,14 @@ void loop() {
 // RPM determination 
 
 if(rev_count_left >= 5){
-  rpm_left = (5 * rev_count_left) / (1/64 * (millis() - time_old_left)); 
+  rpm_left = (5 * rev_count_left) / (64000 * 60 * (millis() - time_old_left)); 
   time_old_left = millis();
   rev_count_left = 0;
 }
 
 
 if(rev_count_right >= 5){
-  rpm_right = (5 * rev_count_right) / (1/64 * (millis() - time_old_right));
+  rpm_right = (5 * rev_count_right) / (64000 * 60 * (millis() - time_old_right));
   time_old_right = millis();
   rev_count_right = 0;
 }
