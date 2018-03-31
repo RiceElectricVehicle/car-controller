@@ -37,10 +37,6 @@ double setPower; //setpoint of power
 double currentPower; //current power of motor
 double newPower;  //power output of PID
 
-double lastSetPower; //setPower one value ago
-double powerDifference; //defined as setPower - lastSetPower
-double inputPowerLast5; //setPower 5 values ago
-int power_increment; // internal variable keeps track of 5 power values
 
 // Other PID variables
 
@@ -182,7 +178,6 @@ if(rev_count_right >= 5){
 setPower is:
   linear map to motor rated power (0 to 1000W) IF rate of depression is not greater than MAX_POWER_RATE_THRESHOLD
 
-  1200W if rate of depression is greater than MAX_POWER_RATE_THRESHOLD.
 
 */
 
