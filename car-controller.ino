@@ -109,7 +109,7 @@ void loop() {
   // read pedal input
   throttle_setpoint = analogRead(PEDAL);
 
-  // map throttle to range 0-255
+  // re-map throttle to range 0-255
   if(throttle_setpoint < 380){
     throttle_new = 0;
   }
