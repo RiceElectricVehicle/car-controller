@@ -8,7 +8,6 @@
 #define MOSI 11
 #define MISO 12
 #define CLK 13
-#define LED 2
 
 // PWM output pins
 #define AIN1 10
@@ -22,11 +21,10 @@
 
 // input pins
 #define PEDAL A0
-#define V1 A1
-#define V2 A2
-#define I1 A3
-#define I2 A4
-#define VBAT A5
+#define I1 A1
+#define I2 A2
+#define Hall1 3
+#define Hall2 2
 
 // PID coefficients (what are we doiiiing?)
 const double Kp = 0.5;
@@ -46,7 +44,7 @@ PID control(&currentPower, &newPower, &setPower, Kp, Ki, Kd, DIRECT);
 
 
 void setup() {
-  Serial.begin(115200); 
+  Serial.begin(9600); 
   
   // set PWM Frequency for PWM outputs to 62.5 kHz
   // TIMER/COUNTER 0
@@ -74,29 +72,52 @@ void setup() {
   // general DRV pins
   pinMode(SLEEP, OUTPUT); pinMode(FAULT, INPUT);
 
+  // wake up
+  digitalWrite(SLEEP, HIGH);
+
   // DRV registers
   sailboat.setTBlank(0xC1); // 3us
   sailboat.setTOff(0x13); // 10us
-  sailboat.setISGain(5);
+  sailboat.setISGain(10);
   sailboat.setTorque(0x8C);
   
   //TDRIVEN and P (ns)
-  sailboat.setGDSinkTime(263);
-  sailboat.setGDSourceTime(263);
+  sailboat.setTDriveN(263);
+  sailboat.setTDriveP(263);
 
   // IDRIVEN and P (mA)
-  sailboat.setGDSinkPkCurrent(100);
-  sailboat.setGDSourcePkCurrent(50);
+  sailboat.setIDriveN(100);
+  sailboat.setIDriveP(50);
  
   // PWM duty cycle controlled with: 
   // pin 5-6: OCR0A/B
-  // pin 9-10: OCR1A/B (dont know which is A or B).
+  // pin 9-10: OCR1A/B  A = 9 B = 10
+  unsigned int read1 = sailboat.read(0x00);
+  Serial.println(read1);
+
+  // pin 9
+  OCR1A = 250;
+  //pin 10 
+  OCR1B = 128;
+  // OCR0A
+  // OCR0B
+
+  // for(OCR1B = 0; OCR1B <= 245; OCR1B++){
+  //   delay(2000);
+  // }
+
 
 
 }
 
+int x;
+int y;
 void loop() {
+
+  y = map(analogRead(A0), 0, 1023, 0, 255);
   
+  analogWrite(10, y);
+
   // TODO: Check PWM performance
 
   // TODO: calculate setPower based on pedal position AND pedal position rate of change
