@@ -140,14 +140,14 @@ void loop() {
 // RPM determination 
 
 if(rev_count_left >= 5){
-  rpm_left = (5 * rev_count_left) / (millis() - time_old_left); 
+  rpm_left = (5 * rev_count_left) / (1/64 * (millis() - time_old_left)); 
   time_old_left = millis();
   rev_count_left = 0;
 }
 
 
 if(rev_count_right >= 5){
-  rpm_right = (5 * rev_count_right) / (millis() - time_old_right);
+  rpm_right = (5 * rev_count_right) / (1/64 * (millis() - time_old_right));
   time_old_right = millis();
   rev_count_right = 0;
 }
