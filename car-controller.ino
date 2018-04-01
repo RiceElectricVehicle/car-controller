@@ -168,8 +168,8 @@ void setup() {
   current_control_1.setSampleTime(64 * 200);
   current_control_2.setSampleTime(64 * 200);
 
-  current_control_1.setOutputLimits(0, 1000);
-  current_control_2.setOutputLimits(0, 1000);
+  current_control_1.setOutputLimits(0, 30);
+  current_control_2.setOutputLimits(0, 30);
 }
 
 void loop() {
