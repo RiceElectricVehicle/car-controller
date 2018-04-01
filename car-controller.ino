@@ -151,20 +151,15 @@ void loop() {
 
   
   // RPM determination (millis() func returns 1/64 of millis after Timer 0 manipulation)
-  //
-  //         #rotations            5 * (rev_count)
-  // RPM =  -------------- =  ----------------------------
-  //         time elapsed      millis() * 64 * 1000 * 60
-  
 
-  if(rev_count_1 >= 5){
+  if(rev_count_1 >= 3){
     wheel_rpm_1 = rev_count_1 / (64 * (millis() - time_old_1)/(1000*60)); 
     time_old_1 = millis();
     rev_count_1 = 0;
   }
 
 
-  if(rev_count_2 >= 5){
+  if(rev_count_2 >= 3){
     rpm_2 = rev_count_2/ (64 * (millis() - time_old_1)/(1000*60));
     time_old_2 = millis();
     rev_count_2 = 0;
@@ -174,6 +169,16 @@ void loop() {
 
   motor_rpm_1 = wheel_rpm_1 * GEAR_RATIO;
   motor_rpm_2 = wheel_rpm_2 * GEAR_RATIO;
+
+  // account for very slow speed (less than 1 full rotation) by constraining RPM to be greater than 0
+  if(motor_rpm_1 == 0){
+    motor_rpm_1 = 1;
+  }
+
+  if (motor_rpm_2 == 0){
+    motor_rpm_2 = 1;
+  }
+
 
   // estimate motor voltage using motor RPM
 
@@ -197,24 +202,30 @@ void loop() {
 
  last_time = now;
 
-
   setPower = setpoint_integrator / loop_counter;
+
+
 
   // TODO: caclulcate currentPower based on motors' voltages and currents
 
   current_power_1 = I1 * wheel_rpm_1 * 1/KV;
 
-  current_power_2 = I2 * rpm_2 * 1/KV;
+  current_power_2 = I2 * wheel_rpm_2 * 1/KV;
 
-  //generate new_power values
+  //generate new_power values from PID
   control_1.Compute(); 
   control_2.Compute();
 
-  // TODO: map new_power to pwm signals (need logic for forward, reverse, coasting)
+
+
+  // map new_power to pwm signals (need logic for forward, reverse, coasting)
 
   pwm_1 = map(new_power_1, 0, 1000, 0, 255);
   pwm_2 = map(new_power_2, 0, 1000, 0, 255);
 
+
+
+  //write values to DRV 
   // Forward - write 0 to xIN2
 
   analogWrite(AIN1, new_power_1);
