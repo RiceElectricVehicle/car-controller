@@ -175,21 +175,19 @@ void loop() {
   inputPower = map(analogRead(PEDAL), 380, 720, 0, 1000);
   inputPower = constrain(setPower, 0, 1000); 
 
-  now = millis() * 64;
-  time_change = now - last_time;
   loop_counter++;
-  setpoint_integrator += inputPower * (millis() - last_time);
+  setpoint_integrator += inputPower; 
 
 
   if (loop_counter > 15){
     loop_counter = 0;
-    setpoint_integrator = inputPower;
+    setpoint_integrator = inputPower; //unwind the averager every 15 samples
   }
 
  last_time = now;
 
 
-  setPower = inputPower;
+  setPower = setpoint_integrator / loop_counter;
 
   // TODO: caclulcate currentPower based on motors' voltages and currents
 
