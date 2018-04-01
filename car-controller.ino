@@ -157,8 +157,8 @@ void setup() {
   
   //PID for electronic differential attempts to equalize currents by adjusting individivual setpoints. 
   avg_current = (I1 + I2 / 2);
-  PID current_control_1(&I1, &set_power_1, &avg_current, );
-  PID current_control_2(&I2, &set_power_2, &avg_current);
+  PID current_control_1(&I1, &set_power_1, &avg_current, Kp_diff, Ki_diff, Kd_diff);
+  PID current_control_2(&I2, &set_power_2, &avg_current, Kp_diff, Ki_diff, Kd_diff);
 
   current_control_1.setSampleTime(64 * 200);
   current_control_2.setSampleTime(64 * 200);
