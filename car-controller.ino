@@ -141,8 +141,7 @@ void setup() {
   time_old_1 = 0;
   time_old_2 = 0;
 
-
-  loop_counter = 0;
+  loop_counter = 1;
   setpoint_integrator = 0;
 
   // PID for motors work on full rated power of the motor
@@ -156,7 +155,6 @@ void loop() {
 
   
   // RPM determination (millis() func returns 1/64 of millis after Timer 0 manipulation)
-
   if(rev_count_1 >= 3){
     wheel_rpm_1 = rev_count_1 / (64 * (millis() - time_old_1)/(1000*60)); 
     time_old_1 = millis();
@@ -171,7 +169,6 @@ void loop() {
   }
 
   // Determine motor RPM using wheel RPM
-
   motor_rpm_1 = wheel_rpm_1 * GEAR_RATIO;
   motor_rpm_2 = wheel_rpm_2 * GEAR_RATIO;
 
@@ -185,35 +182,32 @@ void loop() {
   }
 
   // estimate motor voltage using motor RPM
-
   motor_volt_1 = motor_rpm_1 / KV;
   motor_volt_2 = motor_rpm_2 / KV;
 
   
   // Calculate set_power
-  // setPower is: linear map to motor rated power (0 to 1000W
+  // set_power is: linear map to motor rated power (0 to 1000W)
+  // set_power is averaged over the past 15 values;
   inputPower = map(analogRead(PEDAL), 380, 720, 0, 1000);
   inputPower = constrain(setPower, 0, 1000); 
 
-  loop_counter++;
   setpoint_integrator += inputPower; 
 
-
   if (loop_counter > 15){
-    loop_counter = 0;
+    loop_counter = 1;
     setpoint_integrator = inputPower; //unwind the averager every 15 samples
   }
 
   last_time = now;
 
   setPower = setpoint_integrator / loop_counter;
-
+  loop_counter++;
 
 
   // TODO: caclulcate currentPower based on motors' voltages and currents
 
   current_power_1 = I1 * wheel_rpm_1 * 1/KV;
-
   current_power_2 = I2 * wheel_rpm_2 * 1/KV;
 
   //generate new_power values from PID
