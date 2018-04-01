@@ -17,8 +17,8 @@
 #define BIN2 5
 
 // MISC pins
-#define SLEEP 7
-#define FAULT 4
+#define SLEEP 4
+#define FAULT 7
 
 // input pins
 #define PEDAL A0
@@ -39,7 +39,7 @@ double throttle_new;
 
 // initialize some useful objects
 Logger genLog("REV", "info");
-drv sailboat(MOSI, MISO, CLK, SCS, LED);
+drv sailboat(MOSI, MISO, CLK, SCS);
 
 //PID won't be used for this one
 //PID control(&currentPower, &newPower, &setPower, Kp, Ki, Kd, DIRECT);
@@ -47,7 +47,7 @@ drv sailboat(MOSI, MISO, CLK, SCS, LED);
 
 
 void setup() {
-  Serial.begin(115200); 
+  Serial.begin(9600); 
   
   // set PWM Frequency for PWM outputs to 62.5 kHz
   // TIMER/COUNTER 0
@@ -56,7 +56,7 @@ void setup() {
   // PWM MODE    = FAST PWM     [_BV(WGM01) | _BV(WGM00)]
   // PRESCALER   = 1            [_BV(CS00)]
   TCCR0A = _BV(COM0A1) | _BV(COM0B1) | _BV(WGM01) | _BV(WGM00); 
-  TCCR0B = _BV(CS00); 
+  TCCR0B = _BV(CS01); 
 
   // TIMER/COUNTER 1
   // PIN 9(OC1A)  = NON-INVERTED [_BV(COM1A1)]
@@ -64,7 +64,7 @@ void setup() {
   // PWM MODE     = FAST PWM 8BIT[_BV(WGM12) | _BV(WGM10)]
   // PRESCALER    = 1            [_BV(CS10)]
   TCCR1A = _BV(COM1A1) | _BV(COM1B1) | _BV(WGM10); 
-  TCCR1B = _BV(WGM12) | _BV(CS10);
+  TCCR1B = _BV(WGM12) | _BV(CS11);
 
   // SPI Pins
   pinMode(SCS, OUTPUT); pinMode(MOSI, OUTPUT); pinMode(MISO, OUTPUT); pinMode(CLK, OUTPUT); 
@@ -75,26 +75,30 @@ void setup() {
   // general DRV pins
   pinMode(SLEEP, OUTPUT); pinMode(FAULT, INPUT);
 
-  // DRV registers
+  //wakeup
+  digitalWrite(SLEEP, HIGH);
+  delay(1000);
+
+  //DRV registers
   sailboat.setTBlank(0xC1); // 3us
   sailboat.setTOff(0x13); // 10us
-  sailboat.setISGain(5);
-  sailboat.setTorque(0x8C);
-  
+  sailboat.setISGain(10);
+
   //TDRIVEN and P (ns)
-  sailboat.setGDSinkTime(263);
-  sailboat.setGDSourceTime(263);
+  sailboat.setTDriveN(263);
+  sailboat.setTDriveP(263);
 
   // IDRIVEN and P (mA)
-  sailboat.setGDSinkPkCurrent(100);
-  sailboat.setGDSourcePkCurrent(50);
+  sailboat.setIDriveN(100);
+  sailboat.setIDriveP(50);
  
   // PWM duty cycle controlled with: 
   // pin 5-6: OCR0A/B
   // pin 9-10: OCR1A/B (dont know which is A or B).
 
-
 }
+
+int i;
 
 void loop() {
   
@@ -104,20 +108,27 @@ void loop() {
   // TODO: caclulcate currentPower based on motors' voltages and currents
   // TODO: run PID.compute()
   // TODO: map newPower to pwm signals (need logic for forward, reverse, coasting)
-
-
+  if (digitalRead(FAULT) == LOW) {
+    Serial.print("[");
+    for(i = 0; i <= 6; i++) {
+      Serial.print(sailboat.faults[0]);
+      Serial.print(", ");
+    }
+    Serial.println("]");
+  }
+  
   // read pedal input
   throttle_setpoint = analogRead(PEDAL);
 
   // re-map throttle to range 0-255
-  if(throttle_setpoint < 380){
+  if(throttle_setpoint < 100){
     throttle_new = 0;
   }
-  else{
-    throttle_new = map(throttle_setpoint, 380, 1023, 0, 255)
+  else {
+    throttle_new = map(throttle_setpoint, 0, 1023, 0, 255);
   }
 
-  throttle_new = pow(throttle_new, 2) / 255; 
+  throttle_new = constrain(pow(throttle_new, 2) / 255, 0, 255);
 
 
   // write PWM to both motors 
