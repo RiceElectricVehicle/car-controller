@@ -39,17 +39,22 @@ const double Kd_diff = 0.01;
 
 // Motor PID setpoint, input, output
 double inputPower; //power of current pedal value
-double set_power;
+double set_power; //averaged power setpoint. use this as setpoint. 
 double current_power_1; //current power of motor _x
 double current_power_2;
 double new_power_1;  //power output of PID
 double new_power_2;
 
 // Differential PID setpoint
-double set_power_1;
+double set_power_1; //these will distribute the pedal input setpoint to finely control current. 
 double set_power_2;
 
 double avg_current;
+double new_current_1;
+double new_current_2;
+
+double differential_power_1;
+double differential_power_2;
 
 double setpoint_integrator;
 int loop_counter;
@@ -80,7 +85,7 @@ double motor_volt_2;
 Logger genLog("REV", "info");
 drv sailboat(MOSI, MISO, CLK, SCS, 0);
 PID control_1(&current_power_1, &new_power_1, &set_power_1, Kp, Ki, Kd, DIRECT);
-PID control_2(&current_power_2, &new_power_2, &set_power_2, Kp, Ki, Kd, DIRECT);
+PID control_2(&current_power_2, &new_power_2, &set_power_1, Kp, Ki, Kd, DIRECT);
 
 
 void setup() {
@@ -157,8 +162,8 @@ void setup() {
   
   //PID for electronic differential attempts to equalize currents by adjusting individivual setpoints. 
   avg_current = (I1 + I2 / 2);
-  PID current_control_1(&I1, &set_power_1, &avg_current, Kp_diff, Ki_diff, Kd_diff);
-  PID current_control_2(&I2, &set_power_2, &avg_current, Kp_diff, Ki_diff, Kd_diff);
+  PID current_control_1(&I1, &new_current_1, &avg_current, Kp_diff, Ki_diff, Kd_diff);
+  PID current_control_2(&I2, &new_current_2, &avg_current, Kp_diff, Ki_diff, Kd_diff);
 
   current_control_1.setSampleTime(64 * 200);
   current_control_2.setSampleTime(64 * 200);
@@ -217,7 +222,8 @@ void loop() {
 
   last_time = now;
 
-  set_power = setpoint_integrator / loop_counter;
+  set_power = setpoint_integrator / loop_counter; // averaged value of intput over current number of samples...
+  
   loop_counter++;
 
   current_control_1.Compute(); // get set_power values
@@ -233,10 +239,19 @@ void loop() {
   control_2.Compute();
 
 
+  // determine the power at each new_current value for the differential
+  differential_power_1 = new_current_1 * wheel_rpm_1 * 1/KV; //power that the differential wants to apply to maintain equal torque
+  differential_power_2 = new_current_2 * wheel_rpm_2 * 1/KV;
+
+  // determine correct setpoints for each motor-specific power loop, using pedal + differential
+  // using weighted average: 90% pedal, 10% differential. 
+  set_power_1 = set_power * 0.9 + differential_power_1 * 0.1;
+  set_power_2 = set_power * 0.9 + differential_power_2 * 0.1;
+
 
   // map new_power to pwm signals (need logic for forward, reverse, coasting)
 
-  pwm_1 = map(new_power_1, 0, 1000, 0, 255);
+  pwm_1 = map(new_power_1, 0, 1000, 0, 255); 
   pwm_2 = map(new_power_2, 0, 1000, 0, 255);
 
 
