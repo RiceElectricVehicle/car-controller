@@ -179,8 +179,7 @@ void loop() {
     setpoint_integrator = inputPower; //unwind the averager every 15 samples
   }
 
-
-
+  //if speed is below certain value
   setPower = setpoint_integrator / loop_counter;
 
   // TODO: caclulcate currentPower based on motors' voltages and currents
