@@ -56,7 +56,7 @@ void setup() {
   // PWM MODE    = FAST PWM     [_BV(WGM01) | _BV(WGM00)]
   // PRESCALER   = 1            [_BV(CS00)]
   TCCR0A = _BV(COM0A1) | _BV(COM0B1) | _BV(WGM01) | _BV(WGM00); 
-  TCCR0B = _BV(CS01); 
+  TCCR0B = _BV(CS01);
 
   // TIMER/COUNTER 1
   // PIN 9(OC1A)  = NON-INVERTED [_BV(COM1A1)]
@@ -80,17 +80,23 @@ void setup() {
   delay(1000);
 
   //DRV registers
-  sailboat.setTBlank(0xC1); // 3us
-  sailboat.setTOff(0x13); // 10us
-  sailboat.setISGain(10);
+  sailboat.setISGain(5); // 5 for car
+  sailboat.setDTime(670);
+  sailboat.setTorque(0x07); // 0x87 for car
 
+  sailboat.setTOff(0x13); // 10us
+  sailboat.setTBlank(0x00); // 1 us
+ 
+  sailboat.setDecMode("mixed");
+  
+  //sailboat.setOCPDeglitchTime(1.05);
   //TDRIVEN and P (ns)
   sailboat.setTDriveN(263);
   sailboat.setTDriveP(263);
 
   // IDRIVEN and P (mA)
-  sailboat.setIDriveN(100);
-  sailboat.setIDriveP(50);
+  sailboat.setIDriveN(300);
+  sailboat.setIDriveP(150);
  
   // PWM duty cycle controlled with: 
   // pin 5-6: OCR0A/B
@@ -99,7 +105,6 @@ void setup() {
 }
 
 int i;
-
 void loop() {
   
   // TODO: Check PWM performance
@@ -108,13 +113,15 @@ void loop() {
   // TODO: caclulcate currentPower based on motors' voltages and currents
   // TODO: run PID.compute()
   // TODO: map newPower to pwm signals (need logic for forward, reverse, coasting)
+
   if (digitalRead(FAULT) == LOW) {
-    Serial.print("[");
-    for(i = 0; i <= 6; i++) {
-      Serial.print(sailboat.faults[0]);
-      Serial.print(", ");
-    }
-    Serial.println("]");
+    // Serial.print("[");
+    // for(i = 0; i <= 6; i++) {
+    //   Serial.print(sailboat.faults[0]);
+    //   Serial.print(", ");
+    // }
+    // Serial.println("]");
+    Serial.println(sailboat.read(0x07) & 0x3F);
   }
   
   // read pedal input
@@ -125,7 +132,7 @@ void loop() {
     throttle_new = 0;
   }
   else {
-    throttle_new = map(throttle_setpoint, 0, 1023, 0, 255);
+    throttle_new = map(throttle_setpoint, 0, 1023, 220, 255);
   }
 
   throttle_new = constrain(pow(throttle_new, 2) / 255, 0, 255);
