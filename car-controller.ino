@@ -179,7 +179,6 @@ void loop() {
     motor_rpm_2 = 1;
   }
 
-
   // estimate motor voltage using motor RPM
 
   motor_volt_1 = motor_rpm_1 / KV;
@@ -200,7 +199,7 @@ void loop() {
     setpoint_integrator = inputPower; //unwind the averager every 15 samples
   }
 
- last_time = now;
+  last_time = now;
 
   setPower = setpoint_integrator / loop_counter;
 
