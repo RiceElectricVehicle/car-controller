@@ -72,9 +72,6 @@ drv sailboat(MOSI, MISO, CLK, SCS, 0);
 PID control_1(&current_power_1, &new_power_1, &setPower, Kp, Ki, Kd, DIRECT);
 PID control_2(&current_power_2, &new_power_2, &setPower, Kp, Ki, Kd, DIRECT);
 
-// PID for motors work on full rated power of the motor
-control_1.setOutputLimits(0, 1000);
-control_2.setOutputLimits(0, 1000);
 
 
 
@@ -148,6 +145,11 @@ void setup() {
   loop_counter = 0;
   setpoint_integrator = 0;
 
+  // PID for motors work on full rated power of the motor
+  control_1.setOutputLimits(0, 1000);
+  control_2.setOutputLimits(0, 1000);
+
+ 
 }
 
 void loop() {
