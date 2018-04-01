@@ -215,7 +215,7 @@ void loop() {
   motor_volt_2 = motor_rpm_2 / KV;
 
   
-  // Calculate set_power
+  // Calculate set_power (just pedal input)
   // set_power is: linear map to motor rated power (0 to 1000W)
   // set_power is averaged over the past 15 values;
   inputPower = map(analogRead(PEDAL), 380, 720, 0, 1000);
@@ -230,19 +230,18 @@ void loop() {
 
   last_time = now;
 
-  set_power = setpoint_integrator / loop_counter; // averaged value of intput over current number of samples...
-  
+  set_power = setpoint_integrator / loop_counter; // averaged value of intput over current number of samples, represents pedal power
   loop_counter++;
 
+  // caclulcate current_power based on motors' voltages and currents
+  motor_power_1 = I1 * wheel_rpm_1 * 1/KV;
+  motor_power_2 = I2 * wheel_rpm_2 * 1/KV;
+  
+  // compute new_current values using Differential PID
   current_control_1.Compute(); // get set_power values
   current_control_2.Compute(); 
 
-  // TODO: caclulcate current_power based on motors' voltages and currents
-
-  motor_power_1 = I1 * wheel_rpm_1 * 1/KV;
-  motor_power_2 = I2 * wheel_rpm_2 * 1/KV;
-
-  //generate new_power values from PID
+  // compute new_power values from motor PIDs
   control_1.Compute(); 
   control_2.Compute();
 
