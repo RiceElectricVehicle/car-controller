@@ -72,6 +72,9 @@ drv sailboat(MOSI, MISO, CLK, SCS, 0);
 PID control_1(&current_power_1, &new_power_1, &setPower, Kp, Ki, Kd, DIRECT);
 PID control_2(&current_power_2, &new_power_2, &setPower, Kp, Ki, Kd, DIRECT);
 
+// PID for motors work on full rated power of the motor
+control_1.setOutputLimits(0, 1000);
+control_2.setOutputLimits(0, 1000);
 
 
 
@@ -239,7 +242,7 @@ void loop() {
 
 void hall_1_ISR(){
   /*
-  Increment hall effect sensor counter on left side
+  Interrupt: Increment hall effect sensor counter on left side
   */
 
   rev_count_1++;
@@ -248,7 +251,7 @@ void hall_1_ISR(){
 
 void hall_2_ISR(){
   /*
-  Increment hall effect sensor counter on right side 
+  Interrupt: Increment hall effect sensor counter on right side 
   */
 
   rev_count_2++;
