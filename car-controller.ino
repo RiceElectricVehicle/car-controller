@@ -99,7 +99,7 @@ void setup() {
   // PWM MODE    = FAST PWM     [_BV(WGM01) | _BV(WGM00)]
   // PRESCALER   = 1            [_BV(CS00)]
   TCCR0A = _BV(COM0A1) | _BV(COM0B1) | _BV(WGM01) | _BV(WGM00); 
-  TCCR0B = _BV(CS00); 
+  TCCR0B = _BV(CS01); 
 
   // TIMER/COUNTER 1
   // PIN 9(OC1A)  = NON-INVERTED [_BV(COM1A1)]
@@ -107,7 +107,7 @@ void setup() {
   // PWM MODE     = FAST PWM 8BIT[_BV(WGM12) | _BV(WGM10)]
   // PRESCALER    = 1            [_BV(CS10)]
   TCCR1A = _BV(COM1A1) | _BV(COM1B1) | _BV(WGM10); 
-  TCCR1B = _BV(WGM12) | _BV(CS10);
+  TCCR1B = _BV(WGM12) | _BV(CS11);
 
 
 
