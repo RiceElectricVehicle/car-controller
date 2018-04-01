@@ -245,23 +245,19 @@ void loop() {
   control_1.Compute(); 
   control_2.Compute();
 
-
-  // determine the power at each new_current value for the differential
-  differential_power_1 = new_current_1 * wheel_rpm_1 * 1/KV; //power that the differential wants to apply to maintain equal torque
+  // determine the power that the differential wants to apply to equalize currents/torques
+  differential_power_1 = new_current_1 * wheel_rpm_1 * 1/KV; 
   differential_power_2 = new_current_2 * wheel_rpm_2 * 1/KV;
 
-  // determine correct setpoints for each motor-specific power loop, using pedal + differential
+  // determine correct setpoints for each motor PID, using pedal + differential weighted average
   // using weighted average: 90% pedal, 10% differential. 
   set_power_1 = set_power * 0.9 + differential_power_1 * 0.1;
   set_power_2 = set_power * 0.9 + differential_power_2 * 0.1;
 
 
-  // map new_power to pwm signals (need logic for forward, reverse, coasting)
-
+  // map new_power (output of motor PIDs) to pwm signals
   pwm_1 = map(new_power_1, 0, 1000, 0, 255); 
   pwm_2 = map(new_power_2, 0, 1000, 0, 255);
-
-
 
   //write values to DRV 
   // Forward - write 0 to xIN2
