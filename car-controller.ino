@@ -33,13 +33,23 @@ const double Kp = 0.05;
 const double Ki = 0.001;
 const double Kd = 0.005;
 
-// PID setpoint, input, output
+const double Kp_diff = 0.05;
+const double Ki_diff = 0.01;
+const double Kd_diff = 0.01;
+
+// Motor PID setpoint, input, output
 double inputPower; //power of current pedal value
-double setPower; //setpoint of power 
-double current_power_1; //current power of motor
+double set_power;
+double current_power_1; //current power of motor _x
 double current_power_2;
 double new_power_1;  //power output of PID
 double new_power_2;
+
+// Differential PID setpoint
+double set_power_1;
+double set_power_2;
+
+double avg_current;
 
 double setpoint_integrator;
 int loop_counter;
@@ -69,11 +79,8 @@ double motor_volt_2;
 // initialize some useful objects
 Logger genLog("REV", "info");
 drv sailboat(MOSI, MISO, CLK, SCS, 0);
-PID control_1(&current_power_1, &new_power_1, &setPower, Kp, Ki, Kd, DIRECT);
-PID control_2(&current_power_2, &new_power_2, &setPower, Kp, Ki, Kd, DIRECT);
-
-
-
+PID control_1(&current_power_1, &new_power_1, &set_power_1, Kp, Ki, Kd, DIRECT);
+PID control_2(&current_power_2, &new_power_2, &set_power_2, Kp, Ki, Kd, DIRECT);
 
 
 void setup() {
@@ -144,11 +151,20 @@ void setup() {
   loop_counter = 1;
   setpoint_integrator = 0;
 
-  // PID for motors work on full rated power of the motor
+  // PID for motors work on rated power of the motor
   control_1.setOutputLimits(0, 1000);
   control_2.setOutputLimits(0, 1000);
+  
+  //PID for electronic differential attempts to equalize currents by adjusting individivual setpoints. 
+  avg_current = (I1 + I2 / 2);
+  PID current_control_1(&I1, &set_power_1, &avg_current, );
+  PID current_control_2(&I2, &set_power_2, &avg_current);
 
- 
+  current_control_1.setSampleTime(64 * 200);
+  current_control_2.setSampleTime(64 * 200);
+
+  current_control_1.setOutputLimits(0, 1000);
+  current_control_2.setOutputLimits(0, 1000);
 }
 
 void loop() {
@@ -190,7 +206,7 @@ void loop() {
   // set_power is: linear map to motor rated power (0 to 1000W)
   // set_power is averaged over the past 15 values;
   inputPower = map(analogRead(PEDAL), 380, 720, 0, 1000);
-  inputPower = constrain(setPower, 0, 1000); 
+  inputPower = constrain(set_power, 0, 1000); 
 
   setpoint_integrator += inputPower; 
 
@@ -201,11 +217,13 @@ void loop() {
 
   last_time = now;
 
-  setPower = setpoint_integrator / loop_counter;
+  set_power = setpoint_integrator / loop_counter;
   loop_counter++;
 
+  current_control_1.Compute(); // get set_power values
+  current_control_2.Compute(); 
 
-  // TODO: caclulcate currentPower based on motors' voltages and currents
+  // TODO: caclulcate current_power based on motors' voltages and currents
 
   current_power_1 = I1 * wheel_rpm_1 * 1/KV;
   current_power_2 = I2 * wheel_rpm_2 * 1/KV;
