@@ -43,25 +43,27 @@ double new_power_2;
 
 double setpoint_integrator;
 int loop_counter;
-double now;
-double last_time; //for setpoint integrator 
-double time_change;
 
 // Other PID variables
 const int MAX_POWER_RATE_THRESHOLD = 500;
-// 78 rpm/volt => 1/78 volt/rmp
-const int KV = 78; 
-
+const int KV = 78; // 78 rpm/volt => 1/78 volt/rmp
+const float GEAR_RATIO = 5.6;
 
 // Hall Effect Sensor variables
 volatile byte rev_count_1;
 volatile byte rev_count_2;
 
-unsigned int rpm_1; 
-unsigned int rpm_2; 
+unsigned int wheel_rpm_1; 
+unsigned int wheel_rpm_2;
+
+unsigned int motor_rpm_1;
+unsigned int motor_rpm_2;
 
 unsigned int time_old_1;
 unsigned int time_old_2;
+
+double motor_volt_1;
+double motor_volt_2;
 
 
 // initialize some useful objects
@@ -134,7 +136,7 @@ void setup() {
   attachInterrupt(0, hall_2_ISR, RISING); //pin 2
   rev_count_1 = 0;
   rev_count_2 = 0;
-  rpm_1 = 0;
+  wheel_rpm_1 = 0;
   rpm_2 = 0;
   time_old_1 = 0;
   time_old_2 = 0;
@@ -156,7 +158,7 @@ void loop() {
   
 
   if(rev_count_1 >= 5){
-    rpm_1 = rev_count_1 / (64 * (millis() - time_old_1)/(1000*60)); 
+    wheel_rpm_1 = rev_count_1 / (64 * (millis() - time_old_1)/(1000*60)); 
     time_old_1 = millis();
     rev_count_1 = 0;
   }
@@ -168,6 +170,15 @@ void loop() {
     rev_count_2 = 0;
   }
 
+  // Determine motor RPM using wheel RPM
+
+  motor_rpm_1 = wheel_rpm_1 * GEAR_RATIO;
+  motor_rpm_2 = wheel_rpm_2 * GEAR_RATIO;
+
+  // estimate motor voltage using motor RPM
+
+  motor_volt_1 = motor_rpm_1 / KV;
+  motor_volt_2 = motor_rpm_2 / KV;
 
   
   // Calculate set_power
@@ -191,7 +202,7 @@ void loop() {
 
   // TODO: caclulcate currentPower based on motors' voltages and currents
 
-  current_power_1 = I1 * rpm_1 * 1/KV;
+  current_power_1 = I1 * wheel_rpm_1 * 1/KV;
 
   current_power_2 = I2 * rpm_2 * 1/KV;
 
