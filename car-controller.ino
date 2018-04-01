@@ -41,6 +41,11 @@ double current_power_2;
 double new_power_1;  //power output of PID
 double new_power_2;
 
+double setpoint_integrator;
+int loop_counter;
+double now;
+double last_time; //for setpoint integrator 
+double time_change;
 
 // Other PID variables
 const int MAX_POWER_RATE_THRESHOLD = 500;
@@ -125,14 +130,18 @@ void setup() {
   control_2.SetSampleTime(64 * 200); 
 
   // set up interrupts and variables for hall effect sensors
-  attachInterrupt(1, hall_1_ISR, CHANGE); //maps to pin 3
-  attachInterrupt(0, hall_2_ISR, CHANGE); //pin 2
+  attachInterrupt(1, hall_1_ISR, RISING); //maps to pin 3
+  attachInterrupt(0, hall_2_ISR, RISING); //pin 2
   rev_count_1 = 0;
   rev_count_2 = 0;
   rpm_1 = 0;
   rpm_2 = 0;
   time_old_1 = 0;
   time_old_2 = 0;
+
+
+  loop_counter = 0;
+  setpoint_integrator = 0;
 
 }
 
@@ -160,12 +169,25 @@ void loop() {
   }
 
 
-
   
   // Calculate set_power
   // setPower is: linear map to motor rated power (0 to 1000W
   inputPower = map(analogRead(PEDAL), 380, 720, 0, 1000);
   inputPower = constrain(setPower, 0, 1000); 
+
+  now = millis() * 64;
+  time_change = now - last_time;
+  loop_counter++;
+  setpoint_integrator += inputPower * (millis() - last_time);
+
+
+  if (loop_counter > 15){
+    loop_counter = 0;
+    setpoint_integrator = inputPower;
+  }
+
+ last_time = now;
+
 
   setPower = inputPower;
 
