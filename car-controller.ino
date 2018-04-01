@@ -38,31 +38,34 @@ const double Ki_diff = 0.01;
 const double Kd_diff = 0.01;
 
 // Motor PID setpoint, input, output
-double inputPower; //power of current pedal value
-double set_power; //averaged power setpoint. use this as setpoint. 
-double current_power_1; //current power of motor _x
-double current_power_2;
-double new_power_1;  //power output of PID
+double inputPower; //current pedal value mapped to power
+double set_power; //averaged power setpoint for just the pedal powers
+double motor_power_1; //current power of motor 
+double motor_power_2;
+double new_power_1;  //power output of motor-specific PIDs
 double new_power_2;
 
-// Differential PID setpoint
-double set_power_1; //these will distribute the pedal input setpoint to finely control current. 
-double set_power_2;
+// Differential PID setpoint, inputs, outputs, and vars.
+double set_power_1; // these will distribute the pedal input setpoint to finely control current. 
+double set_power_2; // caluclated by output of differential PID * rpm * 1/KV
 
-double avg_current;
-double new_current_1;
+double avg_current; //electronic diff maintains individual motor currents to setpoint of average of the current of both.
+double new_current_1; //ouptuts of differential PIDs
 double new_current_2;
 
-double differential_power_1;
+double differential_power_1; // new_current * current motor rpm * 1/KV
 double differential_power_2;
 
-double setpoint_integrator;
-int loop_counter;
 
-// Other PID variables
+
+// Other speed controller variables
 const int MAX_POWER_RATE_THRESHOLD = 500;
 const int KV = 78; // 78 rpm/volt => 1/78 volt/rmp
 const float GEAR_RATIO = 5.6;
+
+double setpoint_integrator; //integrates just the pedal input to lag torque.
+int loop_counter; //internal var for setpoint_integrator
+
 
 // Hall Effect Sensor variables
 volatile byte rev_count_1;
@@ -84,8 +87,17 @@ double motor_volt_2;
 // initialize some useful objects
 Logger genLog("REV", "info");
 drv sailboat(MOSI, MISO, CLK, SCS, 0);
-PID control_1(&current_power_1, &new_power_1, &set_power_1, Kp, Ki, Kd, DIRECT);
-PID control_2(&current_power_2, &new_power_2, &set_power_1, Kp, Ki, Kd, DIRECT);
+
+// motor-specific PIDs
+// PID for motors work on rated power of the motor
+PID control_1(&motor_power_1, &new_power_1, &set_power_1, Kp, Ki, Kd, DIRECT);
+PID control_2(&motor_power_2, &new_power_2, &set_power_1, Kp, Ki, Kd, DIRECT);
+
+//differential PIDs
+//PID for electronic differential attempts to equalize currents by adjusting motor-PID setpoints.
+avg_current = (I1 + I2 / 2);
+PID current_control_1(&I1, &new_current_1, &avg_current, Kp_diff, Ki_diff, Kd_diff);
+PID current_control_2(&I2, &new_current_2, &avg_current, Kp_diff, Ki_diff, Kd_diff);
 
 
 void setup() {
@@ -156,15 +168,11 @@ void setup() {
   loop_counter = 1;
   setpoint_integrator = 0;
 
-  // PID for motors work on rated power of the motor
+  // set up motor PIDs
   control_1.setOutputLimits(0, 1000);
   control_2.setOutputLimits(0, 1000);
   
-  //PID for electronic differential attempts to equalize currents by adjusting individivual setpoints. 
-  avg_current = (I1 + I2 / 2);
-  PID current_control_1(&I1, &new_current_1, &avg_current, Kp_diff, Ki_diff, Kd_diff);
-  PID current_control_2(&I2, &new_current_2, &avg_current, Kp_diff, Ki_diff, Kd_diff);
-
+  // set up differential PIDs 
   current_control_1.setSampleTime(64 * 200);
   current_control_2.setSampleTime(64 * 200);
 
@@ -231,8 +239,8 @@ void loop() {
 
   // TODO: caclulcate current_power based on motors' voltages and currents
 
-  current_power_1 = I1 * wheel_rpm_1 * 1/KV;
-  current_power_2 = I2 * wheel_rpm_2 * 1/KV;
+  motor_power_1 = I1 * wheel_rpm_1 * 1/KV;
+  motor_power_2 = I2 * wheel_rpm_2 * 1/KV;
 
   //generate new_power values from PID
   control_1.Compute(); 
