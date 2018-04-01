@@ -261,15 +261,13 @@ void loop() {
 
   //write values to DRV 
   // Forward - write 0 to xIN2
-
   analogWrite(AIN1, new_power_1);
   analogWrite(BIN1, new_power_2);
 
   analogWrite(AIN2, LOW);
   analogWrite(BIN2, LOW);
 
-
-  }
+}
 
 
 void hall_1_ISR(){
