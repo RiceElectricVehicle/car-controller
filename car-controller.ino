@@ -41,22 +41,29 @@ double current_power_2;
 double new_power_1;  //power output of PID
 double new_power_2;
 
+double setpoint_integrator;
+int loop_counter;
 
 // Other PID variables
 const int MAX_POWER_RATE_THRESHOLD = 500;
-// 78 rpm/volt => 1/78 volt/rmp
-const int KV = 78; 
-
+const int KV = 78; // 78 rpm/volt => 1/78 volt/rmp
+const float GEAR_RATIO = 5.6;
 
 // Hall Effect Sensor variables
 volatile byte rev_count_1;
 volatile byte rev_count_2;
 
-unsigned int rpm_1; 
-unsigned int rpm_2; 
+unsigned int wheel_rpm_1; 
+unsigned int wheel_rpm_2;
+
+unsigned int motor_rpm_1;
+unsigned int motor_rpm_2;
 
 unsigned int time_old_1;
 unsigned int time_old_2;
+
+double motor_volt_1;
+double motor_volt_2;
 
 
 // initialize some useful objects
@@ -128,65 +135,98 @@ void setup() {
   control_2.SetSampleTime(SCALER * 200); 
 
   // set up interrupts and variables for hall effect sensors
-  attachInterrupt(1, hall_1_ISR, CHANGE); //maps to pin 3
-  attachInterrupt(0, hall_2_ISR, CHANGE); //pin 2
+  attachInterrupt(1, hall_1_ISR, RISING); //maps to pin 3
+  attachInterrupt(0, hall_2_ISR, RISING); //pin 2
   rev_count_1 = 0;
   rev_count_2 = 0;
-  rpm_1 = 0;
+  wheel_rpm_1 = 0;
   rpm_2 = 0;
   time_old_1 = 0;
   time_old_2 = 0;
 
+  loop_counter = 1;
+  setpoint_integrator = 0;
+
+  // PID for motors work on full rated power of the motor
+  control_1.setOutputLimits(0, 1000);
+  control_2.setOutputLimits(0, 1000);
+
+ 
 }
 
 void loop() {
 
   
-  // RPM determination (millis() func returns 1/SCALER of millis after Timer 0 manipulation)
-  //
-  //         #rotations            5 * (rev_count)
-  // RPM =  -------------- =  ----------------------------
-  //         time elapsed      millis() * 64 * 1000 * 60
-  
-
-  if(rev_count_1 >= 5){
-    rpm_1 = rev_count_1 / (SCALER * (millis() - time_old_1)/(1000*60)); 
+  // RPM determination (millis() func returns 1/64 of millis after Timer 0 manipulation)
+  if(rev_count_1 >= 3){
+    wheel_rpm_1 = rev_count_1 / (64 * (millis() - time_old_1)/(1000*60)); 
     time_old_1 = millis();
     rev_count_1 = 0;
   }
 
 
-  if(rev_count_2 >= 5){
-    rpm_2 = rev_count_2/ (SCALER * (millis() - time_old_1)/(1000*60));
+  if(rev_count_2 >= 3){
+    rpm_2 = rev_count_2/ (64 * (millis() - time_old_1)/(1000*60));
     time_old_2 = millis();
     rev_count_2 = 0;
   }
 
+  // Determine motor RPM using wheel RPM
+  motor_rpm_1 = wheel_rpm_1 * GEAR_RATIO;
+  motor_rpm_2 = wheel_rpm_2 * GEAR_RATIO;
 
+  // account for very slow speed (less than 1 full rotation) by constraining RPM to be greater than 0
+  if(motor_rpm_1 == 0){
+    motor_rpm_1 = 1;
+  }
+
+  if (motor_rpm_2 == 0){
+    motor_rpm_2 = 1;
+  }
+
+  // estimate motor voltage using motor RPM
+  motor_volt_1 = motor_rpm_1 / KV;
+  motor_volt_2 = motor_rpm_2 / KV;
 
   
   // Calculate set_power
-  // setPower is: linear map to motor rated power (0 to 1000W
+  // set_power is: linear map to motor rated power (0 to 1000W)
+  // set_power is averaged over the past 15 values;
   inputPower = map(analogRead(PEDAL), 380, 720, 0, 1000);
   inputPower = constrain(setPower, 0, 1000); 
 
-  setPower = inputPower;
+  setpoint_integrator += inputPower; 
+
+  if (loop_counter > 15){
+    loop_counter = 1;
+    setpoint_integrator = inputPower; //unwind the averager every 15 samples
+  }
+
+  last_time = now;
+
+  setPower = setpoint_integrator / loop_counter;
+  loop_counter++;
+
 
   // TODO: caclulcate currentPower based on motors' voltages and currents
 
-  current_power_1 = I1 * rpm_1 * 1/KV;
+  current_power_1 = I1 * wheel_rpm_1 * 1/KV;
+  current_power_2 = I2 * wheel_rpm_2 * 1/KV;
 
-  current_power_2 = I2 * rpm_2 * 1/KV;
-
-  //generate new_power values
+  //generate new_power values from PID
   control_1.Compute(); 
   control_2.Compute();
 
-  // TODO: map new_power to pwm signals (need logic for forward, reverse, coasting)
+
+
+  // map new_power to pwm signals (need logic for forward, reverse, coasting)
 
   pwm_1 = map(new_power_1, 0, 1000, 0, 255);
   pwm_2 = map(new_power_2, 0, 1000, 0, 255);
 
+
+
+  //write values to DRV 
   // Forward - write 0 to xIN2
 
   analogWrite(AIN1, new_power_1);
@@ -201,7 +241,7 @@ void loop() {
 
 void hall_1_ISR(){
   /*
-  Increment hall effect sensor counter on left side
+  Interrupt: Increment hall effect sensor counter on left side
   */
 
   rev_count_1++;
@@ -210,7 +250,7 @@ void hall_1_ISR(){
 
 void hall_2_ISR(){
   /*
-  Increment hall effect sensor counter on right side 
+  Interrupt: Increment hall effect sensor counter on right side 
   */
 
   rev_count_2++;
