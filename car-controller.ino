@@ -65,6 +65,9 @@ drv sailboat(MOSI, MISO, CLK, SCS, 0);
 PID control_1(&current_power_1, &new_power_1, &setPower, Kp, Ki, Kd, DIRECT);
 PID control_2(&current_power_2, &new_power_2, &setPower, Kp, Ki, Kd, DIRECT);
 
+// scaler for millis and delay funcitons
+#define SCALER 8;
+
 
 
 
@@ -121,8 +124,8 @@ void setup() {
   sailboat.setIDriveP(50);
 
   //update timings to account for change to Timer 0;
-  control_1.SetSampleTime(64 * 200);
-  control_2.SetSampleTime(64 * 200); 
+  control_1.SetSampleTime(SCALER * 200);
+  control_2.SetSampleTime(SCALER * 200); 
 
   // set up interrupts and variables for hall effect sensors
   attachInterrupt(1, hall_1_ISR, CHANGE); //maps to pin 3
@@ -139,7 +142,7 @@ void setup() {
 void loop() {
 
   
-  // RPM determination (millis() func returns 1/64 of millis after Timer 0 manipulation)
+  // RPM determination (millis() func returns 1/SCALER of millis after Timer 0 manipulation)
   //
   //         #rotations            5 * (rev_count)
   // RPM =  -------------- =  ----------------------------
@@ -147,14 +150,14 @@ void loop() {
   
 
   if(rev_count_1 >= 5){
-    rpm_1 = rev_count_1 / (64 * (millis() - time_old_1)/(1000*60)); 
+    rpm_1 = rev_count_1 / (SCALER * (millis() - time_old_1)/(1000*60)); 
     time_old_1 = millis();
     rev_count_1 = 0;
   }
 
 
   if(rev_count_2 >= 5){
-    rpm_2 = rev_count_2/ (64 * (millis() - time_old_1)/(1000*60));
+    rpm_2 = rev_count_2/ (SCALER * (millis() - time_old_1)/(1000*60));
     time_old_2 = millis();
     rev_count_2 = 0;
   }
