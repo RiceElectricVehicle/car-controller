@@ -14,8 +14,8 @@
 #define AIN2 9
 #define BIN1 6
 #define BIN2 5
-int pwm_1;
-int pwm_2;
+int pwm_A;
+int pwm_B;
 
 // MISC pins
 #define SLEEP 7
@@ -23,10 +23,12 @@ int pwm_2;
 
 // input pins
 #define PEDAL A0
-#define I1 A1
-#define I2 A2
-#define hall_1 3
-#define hall_2 2
+#define ISENSA A1
+#define ISENSEB A2
+#define ISENSEAMP 20;
+#define ISENSEOFFSET 0;
+#define HALLA 3
+#define HALLB 2
 
 // PID coefficients (what are we doiiiing?)
 const double Kp = 0.05;
@@ -36,11 +38,10 @@ const double Kd = 0.005;
 // PID setpoint, input, output
 double inputPower; //power of current pedal value
 double setPower; //setpoint of power 
-double current_power_1; //current power of motor
-double current_power_2;
-double new_power_1;  //power output of PID
-double new_power_2;
-
+double current_power_A; //current power of motor
+double current_power_B;
+double new_power_A;  //power output of PID
+double new_power_B;
 double setpoint_integrator;
 int loop_counter;
 
@@ -50,33 +51,35 @@ const int KV = 78; // 78 rpm/volt => 1/78 volt/rmp
 const float GEAR_RATIO = 5.6;
 
 // Hall Effect Sensor variables
-volatile byte rev_count_1;
-volatile byte rev_count_2;
+volatile byte rev_count_A;
+volatile byte rev_count_B;
 
-unsigned int wheel_rpm_1; 
-unsigned int wheel_rpm_2;
+unsigned int wheel_rpm_A; 
+unsigned int wheel_rpm_B;
 
-unsigned int motor_rpm_1;
-unsigned int motor_rpm_2;
+unsigned int motor_rpm_A;
+unsigned int motor_rpm_B;
 
-unsigned int time_old_1;
-unsigned int time_old_2;
+unsigned int time_old_A;
+unsigned int time_old_B;
 
-double motor_volt_1;
-double motor_volt_2;
+double motor_volt_A;
+double motor_volt_B;
+
+double motor_current_A;
+double motor_current_B;
+
+const double resistance = 0.01;
 
 
 // initialize some useful objects
 Logger genLog("REV", "info");
 drv sailboat(MOSI, MISO, CLK, SCS, 0);
-PID control_1(&current_power_1, &new_power_1, &setPower, Kp, Ki, Kd, DIRECT);
-PID control_2(&current_power_2, &new_power_2, &setPower, Kp, Ki, Kd, DIRECT);
+PID control_A(&current_power_A, &new_power_A, &setPower, Kp, Ki, Kd, DIRECT);
+PID control_B(&current_power_B, &new_power_B, &setPower, Kp, Ki, Kd, DIRECT);
 
 // scaler for millis and delay funcitons
 #define SCALER 8;
-
-
-
 
 
 void setup() {
@@ -92,7 +95,7 @@ void setup() {
   pinMode(SLEEP, OUTPUT); pinMode(FAULT, INPUT);
 
   // hall 
-  pinMode(hall_1, INPUT); pinMode(hall_2, INPUT);
+  pinMode(HALLA, INPUT); pinMode(HALLB, INPUT);
 
   // wake up
   digitalWrite(SLEEP, HIGH);
@@ -135,21 +138,22 @@ void setup() {
   control_2.SetSampleTime(SCALER * 200); 
 
   // set up interrupts and variables for hall effect sensors
-  attachInterrupt(1, hall_1_ISR, RISING); //maps to pin 3
-  attachInterrupt(0, hall_2_ISR, RISING); //pin 2
-  rev_count_1 = 0;
-  rev_count_2 = 0;
-  wheel_rpm_1 = 0;
-  rpm_2 = 0;
-  time_old_1 = 0;
-  time_old_2 = 0;
+  attachInterrupt(1, hall_A_ISR, RISING); //maps to pin 3
+  attachInterrupt(0, hall_B_ISR, RISING); //pin 2
+  
+  rev_count_A = 0;
+  rev_count_B = 0;
+  wheel_rpm_A = 0;
+  wheel_rpm_B = 0;
+  time_old_A = 0;
+  time_old_B = 0;
 
   loop_counter = 1;
   setpoint_integrator = 0;
 
   // PID for motors work on full rated power of the motor
-  control_1.setOutputLimits(0, 1000);
-  control_2.setOutputLimits(0, 1000);
+  control_A.setOutputLimits(0, 1000);
+  control_B.setOutputLimits(0, 1000);
 
  
 }
@@ -158,35 +162,34 @@ void loop() {
 
   
   // RPM determination (millis() func returns 1/64 of millis after Timer 0 manipulation)
-  if(rev_count_1 >= 3){
-    wheel_rpm_1 = rev_count_1 / (64 * (millis() - time_old_1)/(1000*60)); 
-    time_old_1 = millis();
-    rev_count_1 = 0;
+  if(rev_count_A >= 3){
+    wheel_rpm_A = rev_count_A / (64 * (millis() - time_old_A)/(1000*60)); 
+    time_old_A = millis();
+    rev_count_A = 0;
   }
 
 
-  if(rev_count_2 >= 3){
-    rpm_2 = rev_count_2/ (64 * (millis() - time_old_1)/(1000*60));
-    time_old_2 = millis();
-    rev_count_2 = 0;
+  if(rev_count_B >= 3){
+    wheel_rpm_B = rev_count_B/ (64 * (millis() - time_old_B)/(1000*60));
+    time_old_A = millis();
+    rev_count_B = A;
   }
-
-  // Determine motor RPM using wheel RPM
-  motor_rpm_1 = wheel_rpm_1 * GEAR_RATIO;
-  motor_rpm_2 = wheel_rpm_2 * GEAR_RATIO;
+  // DetermineAmotor RPM using wheel RPM
+  motor_rpm_A = wheel_rpm_A * GEAR_RATIO;
+  motor_rpm_B = wheel_rpm_B * GEAR_RATIO;
 
   // account for very slow speed (less than 1 full rotation) by constraining RPM to be greater than 0
-  if(motor_rpm_1 == 0){
-    motor_rpm_1 = 1;
+  if(motor_rpm_A == 0){
+    motor_rpm_A = 1;
   }
 
-  if (motor_rpm_2 == 0){
-    motor_rpm_2 = 1;
+  if (motor_rpm_B == 0){
+    motor_rpm_B = 1;
   }
 
   // estimate motor voltage using motor RPM
-  motor_volt_1 = motor_rpm_1 / KV;
-  motor_volt_2 = motor_rpm_2 / KV;
+  motor_volt_A = motor_rpm_A / KV;
+  motor_volt_B = motor_rpm_B / KV;
 
   
   // Calculate set_power
@@ -208,21 +211,24 @@ void loop() {
   loop_counter++;
 
 
-  // TODO: caclulcate currentPower based on motors' voltages and currents
+ // get current
+ motor_current_A = get_current(analogRead(ISENSA), ISENSEOFFSET, resistance, ISENSEMAMP);
+ motor_current_B = get_current(analogRead(ISENSB), ISENSEOFFSET, resistance, ISENSEMAMP);
 
-  current_power_1 = I1 * wheel_rpm_1 * 1/KV;
-  current_power_2 = I2 * wheel_rpm_2 * 1/KV;
+
+  current_power_A = motor_current_A * motor_volt_A;
+  current_power_B = motor_current_B * motor_volt_B;
 
   //generate new_power values from PID
-  control_1.Compute(); 
-  control_2.Compute();
+  control_A.Compute(); 
+  control_B.Compute();
 
 
 
   // map new_power to pwm signals (need logic for forward, reverse, coasting)
 
-  pwm_1 = map(new_power_1, 0, 1000, 0, 255);
-  pwm_2 = map(new_power_2, 0, 1000, 0, 255);
+  pwm_A = map(new_power_A, 0, 1000, 0, 255);
+  pwm_B = map(new_power_B, 0, 1000, 0, 255);
 
 
 
@@ -238,22 +244,24 @@ void loop() {
 
   }
 
+double get_current(int dacValue, int offset, int resistance, int amplification) {
 
-void hall_1_ISR(){
+  return 5 * (double) (dacValue - offset) / (1023 * resistance * amplification);
+}
+
+void hall_A_ISR(){
   /*
   Interrupt: Increment hall effect sensor counter on left side
   */
 
-  rev_count_1++;
+  rev_count_A++;
 
 }
 
-void hall_2_ISR(){
+void hall_B_ISR(){
   /*
   Interrupt: Increment hall effect sensor counter on right side 
   */
 
-  rev_count_2++;
-
+  rev_count_B++;
 }
-
