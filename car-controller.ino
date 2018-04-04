@@ -22,10 +22,10 @@
 
 // input pins
 #define PEDAL A0
-#define V1 A1
-#define V2 A2
-#define I1 A3
-#define I2 A4
+#define HALLA A1
+#define HALLB A2
+#define ISENSEA A3
+#define ISENSEB A4
 #define VBAT A5
 
 // PID coefficients (what are we doiiiing?)
@@ -36,6 +36,10 @@ const double Kd = 0.05;
 // PID setpoint, input, output
 double throttle_setpoint;
 double throttle_new;
+double currentA;
+double currentB;
+double rpmA;
+double rpmB;
 
 // initialize some useful objects
 Logger genLog("REV", "info");
@@ -74,29 +78,29 @@ void setup() {
 
   // general DRV pins
   pinMode(SLEEP, OUTPUT); pinMode(FAULT, INPUT);
-
+  
   //wakeup
   digitalWrite(SLEEP, HIGH);
   delay(1000);
 
   //DRV registers
-  sailboat.setISGain(5); // 5 for car
-  sailboat.setDTime(670);
-  sailboat.setTorque(0x07); // 0x87 for car
+  sailboat.setISGain(10); // 5 for car (not tested)
+  sailboat.setTorque(0x17); // 0x87 for car (not tested yet)
 
-  sailboat.setTOff(0x13); // 10us
+  sailboat.setDTime(410);
+  sailboat.setTOff(0x1D); // * 525 ns
   sailboat.setTBlank(0x00); // 1 us
  
-  sailboat.setDecMode("mixed");
+  sailboat.setDecMode("auto");
   
   //sailboat.setOCPDeglitchTime(1.05);
   //TDRIVEN and P (ns)
-  sailboat.setTDriveN(263);
-  sailboat.setTDriveP(263);
+  sailboat.setTDriveN(525);
+  sailboat.setTDriveP(525);
 
   // IDRIVEN and P (mA)
-  sailboat.setIDriveN(300);
-  sailboat.setIDriveP(150);
+  sailboat.setIDriveN(100);
+  sailboat.setIDriveP(50);
  
   // PWM duty cycle controlled with: 
   // pin 5-6: OCR0A/B
@@ -146,9 +150,12 @@ void loop() {
   analogWrite(AIN2, 0);
   analogWrite(BIN2, 0);
 
+  
 
 
 
 }
+
+
 
 
