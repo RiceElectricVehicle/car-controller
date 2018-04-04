@@ -150,10 +150,6 @@ void loop() {
   analogWrite(AIN2, 0);
   analogWrite(BIN2, 0);
 
-  
-
-
-
 }
 
 
