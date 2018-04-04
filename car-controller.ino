@@ -22,11 +22,17 @@
 
 // input pins
 #define PEDAL A0
-#define HALLA A1
-#define HALLB A2
-#define ISENSEA A3
-#define ISENSEB A4
+#define HALLA 2
+#define HALLB 3
+#define ISENSEA A1
+#define ISENSEB A2
 #define VBAT A5
+
+// misc constants
+#define ISENSEOFFSET 0 // relates to Instrumentation op amp reference point
+#define DACFLOAT 17 // floating point of DAC at 0 current. entire system needs to be powered.
+#define ISENSEAMP 17.129
+const double conductance = 100; // resistance = 1/conducance, to avoid division by zero
 
 // PID coefficients (what are we doiiiing?)
 const double Kp = 0.5;
@@ -36,10 +42,29 @@ const double Kd = 0.05;
 // PID setpoint, input, output
 double throttle_setpoint;
 double throttle_new;
-double currentA;
-double currentB;
-double rpmA;
-double rpmB;
+
+// Hall Effect Sensor variables
+volatile byte rev_count_A;
+volatile byte rev_count_B;
+
+unsigned int wheel_rpm_A; 
+unsigned int wheel_rpm_B;
+
+unsigned int motor_rpm_A;
+unsigned int motor_rpm_B;
+
+unsigned int time_old_A;
+unsigned int time_old_B;
+
+double motor_volt_A;
+double motor_volt_B;
+
+double motor_current_A;
+double motor_current_B;
+
+int pwm_A;
+int pwm_B;
+
 
 // initialize some useful objects
 Logger genLog("REV", "info");
@@ -78,6 +103,19 @@ void setup() {
 
   // general DRV pins
   pinMode(SLEEP, OUTPUT); pinMode(FAULT, INPUT);
+
+  // hall pins
+  pinMode(HALLA, INPUT); pinMode(HALLB, INPUT);
+
+  attachInterrupt(digitalPinToInterrupt(HALLA), hall_A_ISR, RISING); //maps to pin 3
+  attachInterrupt(digitalPinToInterrupt(HALLB), hall_B_ISR, RISING); //pin 2
+
+  rev_count_A = 0;
+  rev_count_B = 0;
+  wheel_rpm_A = 0;
+  wheel_rpm_B = 0;
+  time_old_A = 0;
+  time_old_B = 0;
   
   //wakeup
   digitalWrite(SLEEP, HIGH);
@@ -108,7 +146,7 @@ void setup() {
 
 }
 
-int i;
+
 void loop() {
   
   // TODO: Check PWM performance
@@ -141,6 +179,15 @@ void loop() {
 
   throttle_new = constrain(pow(throttle_new, 2) / 255, 0, 255);
 
+  motor_current_A = get_current(analogRead(ISENSEA), ISENSEOFFSET, conductance, ISENSEAMP);
+  motor_current_B = get_current(analogRead(ISENSEB), ISENSEOFFSET, conductance, ISENSEAMP);
+
+  Serial.print("CURRENT A: ");
+  Serial.println(motor_current_A);
+  //Serial.print("CURRENT B: ");
+  //Serial.println(motor_current_B);
+
+
 
   // write PWM to both motors 
   analogWrite(AIN1, throttle_new);
@@ -151,6 +198,26 @@ void loop() {
   analogWrite(BIN2, 0);
 
 }
+
+double get_current(int dacValue, int offset, int conductance, int amplification) {
+
+  return ((double) 5 * conductance / (double)(1023 * amplification)) * (double) (dacValue - DACFLOAT - offset);
+}
+
+void hall_A_ISR(){
+  /*
+  Interrupt: Increment hall effect sensor counter on left side
+  */
+  rev_count_A++;
+}
+
+void hall_B_ISR(){
+  /*
+  Interrupt: Increment hall effect sensor counter on right side 
+  */
+  rev_count_B++;
+}
+
 
 
 
