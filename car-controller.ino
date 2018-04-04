@@ -3,6 +3,9 @@
 #include <Logger.h>
 #include <SPI.h>
 
+// scaler for millis and delay funcitons
+#define SCALER 8
+
 // SPI pins
 #define SCS 8
 #define MOSI 11
@@ -14,8 +17,6 @@
 #define AIN2 9
 #define BIN1 6
 #define BIN2 5
-int pwm_A;
-int pwm_B;
 
 // MISC pins
 #define SLEEP 7
@@ -23,10 +24,10 @@ int pwm_B;
 
 // input pins
 #define PEDAL A0
-#define ISENSA A1
+#define ISENSEA A1
 #define ISENSEB A2
-#define ISENSEAMP 20;
-#define ISENSEOFFSET 0;
+#define ISENSEAMP 20
+#define ISENSEOFFSET 0
 #define HALLA 3
 #define HALLB 2
 
@@ -54,6 +55,7 @@ const float GEAR_RATIO = 5.6;
 volatile byte rev_count_A;
 volatile byte rev_count_B;
 
+// useful vars
 unsigned int wheel_rpm_A; 
 unsigned int wheel_rpm_B;
 
@@ -69,17 +71,17 @@ double motor_volt_B;
 double motor_current_A;
 double motor_current_B;
 
+int pwm_A;
+int pwm_B;
+
 const double resistance = 0.01;
 
 
 // initialize some useful objects
 Logger genLog("REV", "info");
-drv sailboat(MOSI, MISO, CLK, SCS, 0);
+drv sailboat(MOSI, MISO, CLK, SCS);
 PID control_A(&current_power_A, &new_power_A, &setPower, Kp, Ki, Kd, DIRECT);
 PID control_B(&current_power_B, &new_power_B, &setPower, Kp, Ki, Kd, DIRECT);
-
-// scaler for millis and delay funcitons
-#define SCALER 8;
 
 
 void setup() {
@@ -134,13 +136,13 @@ void setup() {
   sailboat.setIDriveP(50);
 
   //update timings to account for change to Timer 0;
-  control_1.SetSampleTime(SCALER * 200);
-  control_2.SetSampleTime(SCALER * 200); 
+  control_A.SetSampleTime(SCALER * 200);
+  control_B.SetSampleTime(SCALER * 200); 
 
   // set up interrupts and variables for hall effect sensors
   attachInterrupt(1, hall_A_ISR, RISING); //maps to pin 3
   attachInterrupt(0, hall_B_ISR, RISING); //pin 2
-  
+
   rev_count_A = 0;
   rev_count_B = 0;
   wheel_rpm_A = 0;
@@ -152,8 +154,8 @@ void setup() {
   setpoint_integrator = 0;
 
   // PID for motors work on full rated power of the motor
-  control_A.setOutputLimits(0, 1000);
-  control_B.setOutputLimits(0, 1000);
+  control_A.SetOutputLimits(0, 1000);
+  control_B.SetOutputLimits(0, 1000);
 
  
 }
@@ -172,7 +174,7 @@ void loop() {
   if(rev_count_B >= 3){
     wheel_rpm_B = rev_count_B/ (64 * (millis() - time_old_B)/(1000*60));
     time_old_A = millis();
-    rev_count_B = A;
+    rev_count_B = 0;
   }
   // DetermineAmotor RPM using wheel RPM
   motor_rpm_A = wheel_rpm_A * GEAR_RATIO;
@@ -205,15 +207,13 @@ void loop() {
     setpoint_integrator = inputPower; //unwind the averager every 15 samples
   }
 
-  last_time = now;
-
   setPower = setpoint_integrator / loop_counter;
   loop_counter++;
 
 
  // get current
- motor_current_A = get_current(analogRead(ISENSA), ISENSEOFFSET, resistance, ISENSEMAMP);
- motor_current_B = get_current(analogRead(ISENSB), ISENSEOFFSET, resistance, ISENSEMAMP);
+ motor_current_A = get_current(analogRead(ISENSEA), ISENSEOFFSET, resistance, ISENSEAMP);
+ motor_current_B = get_current(analogRead(ISENSEB), ISENSEOFFSET, resistance, ISENSEAMP);
 
 
   current_power_A = motor_current_A * motor_volt_A;
@@ -235,8 +235,8 @@ void loop() {
   //write values to DRV 
   // Forward - write 0 to xIN2
 
-  analogWrite(AIN1, new_power_1);
-  analogWrite(BIN1, new_power_2);
+  analogWrite(AIN1, pwm_A);
+  analogWrite(BIN1, pwm_B);
 
   analogWrite(AIN2, LOW);
   analogWrite(BIN2, LOW);
