@@ -165,14 +165,14 @@ void loop() {
   
   // RPM determination (millis() func returns 1/64 of millis after Timer 0 manipulation)
   if(rev_count_A >= 3){
-    wheel_rpm_A = rev_count_A / (64 * (millis() - time_old_A)/(1000*60)); 
+    wheel_rpm_A = rev_count_A / (SCALER * (millis() - time_old_A)/(1000*60)); 
     time_old_A = millis();
     rev_count_A = 0;
   }
 
 
   if(rev_count_B >= 3){
-    wheel_rpm_B = rev_count_B/ (64 * (millis() - time_old_B)/(1000*60));
+    wheel_rpm_B = rev_count_B/ (SCALER * (millis() - time_old_B)/(1000*60));
     time_old_A = millis();
     rev_count_B = 0;
   }
