@@ -2,6 +2,8 @@
 #include <drv.h>
 #include <Logger.h>
 #include <SPI.h>
+#include <FIR.h>
+
 
 // scaler for millis and delay funcitons
 #define SCALER 8
@@ -139,7 +141,7 @@ void setup() {
   sailboat.setIDriveP(50);
 
   //update timings to account for change to Timer 0;
-  control_A.SetSampleTime(SCALER * 200);
+  control_A.SetSampleTime(SCALER * 200); //200ms update rate
   control_B.SetSampleTime(SCALER * 200); 
 
   // set up interrupts and variables for hall effect sensors
@@ -166,16 +168,16 @@ void setup() {
 void loop() {
 
   
-  // RPM determination (millis() func returns 1/64 of millis after Timer 0 manipulation)
+  // RPM determination (millis() func returns 1/SCALER of millis after Timer 0 manipulation)
   if(rev_count_A >= 3){
-    wheel_rpm_A = rev_count_A / (64 * (millis() - time_old_A)/(1000*60)); 
+    wheel_rpm_A = rev_count_A / (SCALER * (millis() - time_old_A)/(1000*60)); 
     time_old_A = millis();
     rev_count_A = 0;
   }
 
 
   if(rev_count_B >= 3){
-    wheel_rpm_B = rev_count_B/ (64 * (millis() - time_old_B)/(1000*60));
+    wheel_rpm_B = rev_count_B/ (SCALER * (millis() - time_old_B)/(1000*60));
     time_old_A = millis();
     rev_count_B = 0;
   }
