@@ -19,17 +19,22 @@
 #define BIN2 5
 
 // MISC pins
-#define SLEEP 7
-#define FAULT 4
+#define SLEEP 4
+#define FAULT 7
 
 // input pins
 #define PEDAL A0
 #define ISENSEA A1
 #define ISENSEB A2
-#define ISENSEAMP 20
-#define ISENSEOFFSET 0
 #define HALLA 3
 #define HALLB 2
+
+// current sensing constants
+#define DACFLOAT 17 // floating point of DAC at 0 current. entire system needs to be powered.
+#define ISENSEAMP 17.129
+#define ISENSEOFFSET 30
+const double conductance = 100; // resistance = 1/conducance, to avoid division by zero
+
 
 // PID coefficients (what are we doiiiing?)
 const double Kp = 0.05;
@@ -73,8 +78,6 @@ double motor_current_B;
 
 int pwm_A;
 int pwm_B;
-
-const double resistance = 0.01;
 
 
 // initialize some useful objects
@@ -212,8 +215,8 @@ void loop() {
 
 
  // get current
- motor_current_A = get_current(analogRead(ISENSEA), ISENSEOFFSET, resistance, ISENSEAMP);
- motor_current_B = get_current(analogRead(ISENSEB), ISENSEOFFSET, resistance, ISENSEAMP);
+ motor_current_A = get_current(analogRead(ISENSEA), ISENSEOFFSET, conductance, ISENSEAMP);
+ motor_current_B = get_current(analogRead(ISENSEB), ISENSEOFFSET, conductance, ISENSEAMP);
 
 
   current_power_A = motor_current_A * motor_volt_A;
@@ -244,9 +247,9 @@ void loop() {
 
   }
 
-double get_current(int dacValue, int offset, int resistance, int amplification) {
+double get_current(int dacValue, int offset, int conductance, int amplification) {
 
-  return 5 * (double) (dacValue - offset) / (1023 * resistance * amplification);
+  return ((double) 5 * conductance / (double)(1023 * amplification)) * (double) (dacValue - DACFLOAT - offset);
 }
 
 void hall_A_ISR(){
