@@ -178,11 +178,11 @@ void loop() {
 
   throttle_new = constrain(pow(throttle_new, 2) / 255, 0, 255);
 
-  motor_current_A = get_current(analogRead(ISENSEA), 30, conductance, ISENSEAMP);
-  motor_current_B = get_current(analogRead(ISENSEB), 30, conductance, ISENSEAMP);
+  motor_current_A = get_current(analogRead(ISENSEA), 35, conductance, ISENSEAMP);
+  motor_current_B = get_current(analogRead(ISENSEB), 35, conductance, ISENSEAMP);
 
-  Serial.print("CURRENT A: ");
-  Serial.println(motor_current_A);
+  //Serial.print("CURRENT A: ");
+  //Serial.println(motor_current_A);
   //Serial.print("CURRENT B: ");
   //Serial.println(motor_current_B);
 
