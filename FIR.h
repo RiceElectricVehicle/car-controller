@@ -1,12 +1,3 @@
-/*
-  LIBRARY CODE STARTS HERE
- 
- http://www.arduino.cc/cgi-bin/yabb2/YaBB.pl?num=1279123369
- 
- Made into a library by AlphaBeta (www.AlexanderBrevig.com)
- 
- Do whatever you want with it.
- */
 #ifndef FIR_h
 #define FIR_h
 
