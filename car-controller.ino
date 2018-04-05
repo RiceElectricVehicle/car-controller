@@ -136,7 +136,7 @@ void setup() {
   sailboat.setIDriveP(50);
 
   //update timings to account for change to Timer 0;
-  control_A.SetSampleTime(SCALER * 200);
+  control_A.SetSampleTime(SCALER * 200); //200ms update rate
   control_B.SetSampleTime(SCALER * 200); 
 
   // set up interrupts and variables for hall effect sensors
