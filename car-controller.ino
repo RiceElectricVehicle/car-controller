@@ -2,6 +2,7 @@
 #include <drv.h>
 #include <Logger.h>
 #include <SPI.h>
+#include <FIR.h>
 
 // scaler for millis and delay funcitons
 #define SCALER 8
