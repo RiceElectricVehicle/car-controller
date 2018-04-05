@@ -22,16 +22,15 @@
 
 // input pins
 #define PEDAL A0
-#define HALLA 2
-#define HALLB 3
+#define HALLA 3
+#define HALLB 2
 #define ISENSEA A1
 #define ISENSEB A2
 #define VBAT A5
 
 // misc constants
-#define ISENSEOFFSET 0 // relates to Instrumentation op amp reference point
-#define DACFLOAT 17 // floating point of DAC at 0 current. entire system needs to be powered.
-#define ISENSEAMP 17.129
+#define ISENSEREF A3 // read pin for reference point of Amps
+#define ISENSEAMP 10// TODO: measure resistance across each R_G, calculate individial gains
 const double conductance = 100; // resistance = 1/conducance, to avoid division by zero
 
 // PID coefficients (what are we doiiiing?)
@@ -179,8 +178,8 @@ void loop() {
 
   throttle_new = constrain(pow(throttle_new, 2) / 255, 0, 255);
 
-  motor_current_A = get_current(analogRead(ISENSEA), ISENSEOFFSET, conductance, ISENSEAMP);
-  motor_current_B = get_current(analogRead(ISENSEB), ISENSEOFFSET, conductance, ISENSEAMP);
+  motor_current_A = get_current(analogRead(ISENSEA), 30, conductance, ISENSEAMP);
+  motor_current_B = get_current(analogRead(ISENSEB), 30, conductance, ISENSEAMP);
 
   Serial.print("CURRENT A: ");
   Serial.println(motor_current_A);
@@ -199,15 +198,16 @@ void loop() {
 
 }
 
-double get_current(int dacValue, int offset, int conductance, int amplification) {
+double get_current(int dac, int reference, int conductance, int amplification) {
 
-  return ((double) 5 * conductance / (double)(1023 * amplification)) * (double) (dacValue - DACFLOAT - offset);
+  return (((double) 5 * conductance / (double)(1023 * amplification)) * (double) (dac - reference));
 }
 
 void hall_A_ISR(){
   /*
   Interrupt: Increment hall effect sensor counter on left side
   */
+  genLog.logi("HALL ISR A tripped");
   rev_count_A++;
 }
 
@@ -215,6 +215,7 @@ void hall_B_ISR(){
   /*
   Interrupt: Increment hall effect sensor counter on right side 
   */
+  genLog.logi("HALL ISR B tripped");
   rev_count_B++;
 }
 
