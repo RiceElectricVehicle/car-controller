@@ -3,6 +3,9 @@
 #include <Logger.h>
 #include <SPI.h>
 
+// PWM SCALER
+#define SCALER 8
+
 // SPI pins
 #define SCS 8 // pin 10 is used for PWM
 #define MOSI 11
@@ -31,7 +34,10 @@
 // misc constants
 #define ISENSEREF A3 // read pin for reference point of Amps
 #define ISENSEAMP 10// TODO: measure resistance across each R_G, calculate individial gains
-const double conductance = 100; // resistance = 1/conducance, to avoid division by zero
+const double sense_conductance = 100; // resistance = 1/conductance, to avoid division by zero
+const double R_A = 2;
+const double R_B = 2;
+const int Kv = 75;
 
 // PID coefficients (what are we doiiiing?)
 const double Kp = 0.5;
@@ -43,17 +49,18 @@ double throttle_setpoint;
 double throttle_new;
 
 // Hall Effect Sensor variables
-volatile byte rev_count_A;
-volatile byte rev_count_B;
+volatile int rev_count_A;
+volatile int rev_count_B;
 
-unsigned int wheel_rpm_A; 
-unsigned int wheel_rpm_B;
+double wheel_rpm_A; 
+double wheel_rpm_B;
 
 unsigned int motor_rpm_A;
 unsigned int motor_rpm_B;
 
-unsigned int time_old_A;
-unsigned int time_old_B;
+unsigned long now;
+unsigned long time_old_A;
+unsigned long time_old_B;
 
 double motor_volt_A;
 double motor_volt_B;
@@ -63,6 +70,8 @@ double motor_current_B;
 
 int pwm_A;
 int pwm_B;
+
+#define GEAR_RATIO 1;
 
 
 // initialize some useful objects
@@ -106,8 +115,8 @@ void setup() {
   // hall pins
   pinMode(HALLA, INPUT); pinMode(HALLB, INPUT);
 
-  attachInterrupt(digitalPinToInterrupt(HALLA), hall_A_ISR, RISING); //maps to pin 3
-  attachInterrupt(digitalPinToInterrupt(HALLB), hall_B_ISR, RISING); //pin 2
+  attachInterrupt(digitalPinToInterrupt(HALLA), hall_A_ISR, CHANGE); //maps to pin 3
+  attachInterrupt(digitalPinToInterrupt(HALLB), hall_B_ISR, CHANGE); //pin 2
 
   rev_count_A = 0;
   rev_count_B = 0;
@@ -118,26 +127,35 @@ void setup() {
   
   //wakeup
   digitalWrite(SLEEP, HIGH);
+  sailboat.setLogging("error");
+  genLog.setLevel("error");
   delay(1000);
 
-  //DRV registers
-  sailboat.setISGain(10); // 5 for car (not tested)
-  sailboat.setTorque(0x17); // 0x87 for car (not tested yet)
 
-  sailboat.setDTime(410);
-  sailboat.setTOff(0x1D); // * 525 ns
-  sailboat.setTBlank(0x00); // 1 us
+  //DRV registers
+  sailboat.setISGain(5); // 5 for car (not tested)
+  sailboat.setTorque(0x23); // 0x87 for car (not tested yet)
+
+  sailboat.setDTime(670); // ns
+  sailboat.setTOff(0x1D); // * 525 ns =  16 us
+  sailboat.setTBlank(0xFF); // 5.88 us
+
+  // DRV will limit current at 43 kHz with 37% dutycycle
  
-  sailboat.setDecMode("auto");
+  sailboat.setDecMode("slow");
   
   //sailboat.setOCPDeglitchTime(1.05);
   //TDRIVEN and P (ns)
-  sailboat.setTDriveN(525);
-  sailboat.setTDriveP(525);
+  sailboat.setTDriveN(2100);
+  sailboat.setTDriveP(2100);
 
   // IDRIVEN and P (mA)
-  sailboat.setIDriveN(100);
-  sailboat.setIDriveP(50);
+  sailboat.setIDriveN(200);
+  sailboat.setIDriveP(100);
+
+  sailboat.setOCPThresh();
+  sailboat.setOCPDeglitchTime();
+
  
   // PWM duty cycle controlled with: 
   // pin 5-6: OCR0A/B
@@ -145,10 +163,9 @@ void setup() {
 
 }
 
-
+bool check = true;
 void loop() {
   
-  // TODO: Check PWM performance
 
   // TODO: calculate setPower based on pedal position AND pedal position rate of change
   // TODO: caclulcate currentPower based on motors' voltages and currents
@@ -169,7 +186,7 @@ void loop() {
   throttle_setpoint = analogRead(PEDAL);
 
   // re-map throttle to range 0-255
-  if(throttle_setpoint < 100){
+  if(throttle_setpoint < 75){
     throttle_new = 0;
   }
   else {
@@ -177,30 +194,73 @@ void loop() {
   }
 
   throttle_new = constrain(pow(throttle_new, 2) / 255, 0, 255);
+  
+  // RPM determination (millis() func returns xSCALER of millis after Timer 0 manipulation)
+  //unsigned long time = millis() / SCALER;
+  if(rev_count_A >= 15) {
+    now = millis();
+    wheel_rpm_A = (1000 * SCALER * rev_count_A ) / (60 * (now - time_old_A));
+    wheel_rpm_A = wheel_rpm_A / 20;
+    time_old_A = millis();
+    rev_count_A = 0;
+  }
 
-  motor_current_A = get_current(analogRead(ISENSEA), 35, conductance, ISENSEAMP);
-  motor_current_B = get_current(analogRead(ISENSEB), 35, conductance, ISENSEAMP);
+
+  if(rev_count_B >= 15) {
+    now = millis();
+    wheel_rpm_B = (1000 * SCALER * rev_count_B ) / (60 * (now - time_old_B));
+    wheel_rpm_B = wheel_rpm_B / 20;
+    time_old_B = millis();
+    rev_count_B = 0;
+  }
+  // DetermineAmotor RPM using wheel RPM
+  motor_rpm_A = wheel_rpm_A * GEAR_RATIO;
+  motor_rpm_B = wheel_rpm_B * GEAR_RATIO;
+
+  // account for very slow speed (less than 1 full rotation) by constraining RPM to be greater than 0
+  if(motor_rpm_A == 0){
+    motor_rpm_A = 4;
+  }
+
+  if (motor_rpm_B == 0){
+    motor_rpm_B = 4;
+  }
+  
+
+  motor_current_A = get_current(analogRead(ISENSEA), analogRead(ISENSEREF), sense_conductance, ISENSEAMP);
+  motor_current_B = get_current(analogRead(ISENSEB), analogRead(ISENSEREF), sense_conductance, ISENSEAMP);
+  motor_volt_A = get_voltage(motor_rpm_A, motor_current_A, R_A, Kv);
+  motor_volt_B = get_voltage(motor_rpm_B, motor_current_B, R_B, Kv);
+
+  //Serial.print("RPM = ");
+  //Serial.println(wheel_rpm_A);
 
   //Serial.print("CURRENT A: ");
   //Serial.println(motor_current_A);
   //Serial.print("CURRENT B: ");
   //Serial.println(motor_current_B);
-
-
+  
+  //Serial.print("VOLT A: ");
+  //Serial.println(motor_volt_A);
+  //Serial.print("VOLT B: ");
+  //Serial.println(motor_volt_B);
 
   // write PWM to both motors 
   analogWrite(AIN1, throttle_new);
-  analogWrite(BIN1, throttle_new);
+  analogWrite(BIN1, 0);
 
   // write 0 to xIN2 to go forward
   analogWrite(AIN2, 0);
   analogWrite(BIN2, 0);
 
 }
+double get_voltage(int rpm, int current, int R_m, int Kv) {
+  return rpm / Kv + current * R_m;
+}
 
 double get_current(int dac, int reference, int conductance, int amplification) {
 
-  return (((double) 5 * conductance / (double)(1023 * amplification)) * (double) (dac - reference));
+  return (((double) conductance / (double)(1023 * amplification)) * (double) (dac - reference));
 }
 
 void hall_A_ISR(){
@@ -215,7 +275,7 @@ void hall_B_ISR(){
   /*
   Interrupt: Increment hall effect sensor counter on right side 
   */
-  genLog.logi("HALL ISR B tripped");
+  //genLog.logi("HALL ISR B tripped");
   rev_count_B++;
 }
 
