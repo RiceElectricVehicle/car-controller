@@ -1,4 +1,3 @@
-#include <PID_v1.h>
 #include <drv.h>
 #include <Logger.h>
 #include <SPI.h>
@@ -68,8 +67,12 @@ double motor_volt_B;
 double motor_current_A;
 double motor_current_B;
 
-int pwm_A;
-int pwm_B;
+int pwm_A = 255;
+int pwm_B = 255;
+
+int throttle_avg = 0;
+int loop_counter = 5;
+int old_pwm = 0;
 
 #define GEAR_RATIO 1;
 
@@ -142,26 +145,28 @@ void setup() {
 
   // DRV will limit current at 43 kHz with 37% dutycycle
  
-  sailboat.setDecMode("slow");
+ // sailboat.setDecMode("slow");
   
   //sailboat.setOCPDeglitchTime(1.05);
   //TDRIVEN and P (ns)
-  sailboat.setTDriveN(2100);
+  sailboat.setTDriveN(1050);
   sailboat.setTDriveP(2100);
 
   // IDRIVEN and P (mA)
-  sailboat.setIDriveN(200);
+  sailboat.setIDriveN(100);
   sailboat.setIDriveP(100);
 
-  sailboat.setOCPThresh();
-  sailboat.setOCPDeglitchTime();
+  // sailboat.setOCPThresh();
+  // sailboat.setOCPDeglitchTime();
 
  
   // PWM duty cycle controlled with: 
   // pin 5-6: OCR0A/B
   // pin 9-10: OCR1A/B (dont know which is A or B).
+    // write 0 to xIN2 to go forward
 
 }
+
 
 bool check = true;
 void loop() {
@@ -174,63 +179,51 @@ void loop() {
 
   if (digitalRead(FAULT) == LOW) {
     // Serial.print("[");
-    // for(i = 0; i <= 6; i++) {
+    // for(int i = 0; i <= 6; i++) {
     //   Serial.print(sailboat.faults[0]);
     //   Serial.print(", ");
     // }
     // Serial.println("]");
-    Serial.println(sailboat.read(0x07) & 0x3F);
+   Serial.println(sailboat.read(0x07) & 0x3F);
   }
-  
-  // read pedal input
-  throttle_setpoint = analogRead(PEDAL);
-
-  // re-map throttle to range 0-255
-  if(throttle_setpoint < 75){
-    throttle_new = 0;
-  }
-  else {
-    throttle_new = map(throttle_setpoint, 0, 1023, 220, 255);
-  }
-
-  throttle_new = constrain(pow(throttle_new, 2) / 255, 0, 255);
   
   // RPM determination (millis() func returns xSCALER of millis after Timer 0 manipulation)
   //unsigned long time = millis() / SCALER;
-  if(rev_count_A >= 15) {
-    now = millis();
-    wheel_rpm_A = (1000 * SCALER * rev_count_A ) / (60 * (now - time_old_A));
-    wheel_rpm_A = wheel_rpm_A / 20;
-    time_old_A = millis();
-    rev_count_A = 0;
-  }
+
+  // if(rev_count_A >= 15) {
+  //   now = millis();
+  //   wheel_rpm_A = (1000 * SCALER * rev_count_A ) / (60 * (now - time_old_A));
+  //   wheel_rpm_A = wheel_rpm_A / 20;
+  //   time_old_A = millis();
+  //   rev_count_A = 0;
+  // }
 
 
-  if(rev_count_B >= 15) {
-    now = millis();
-    wheel_rpm_B = (1000 * SCALER * rev_count_B ) / (60 * (now - time_old_B));
-    wheel_rpm_B = wheel_rpm_B / 20;
-    time_old_B = millis();
-    rev_count_B = 0;
-  }
-  // DetermineAmotor RPM using wheel RPM
-  motor_rpm_A = wheel_rpm_A * GEAR_RATIO;
-  motor_rpm_B = wheel_rpm_B * GEAR_RATIO;
+  // if(rev_count_B >= 15) {
+  //   now = millis();
+  //   wheel_rpm_B = (1000 * SCALER * rev_count_B ) / (60 * (now - time_old_B));
+  //   wheel_rpm_B = wheel_rpm_B / 20;
+  //   time_old_B = millis();
+  //   rev_count_B = 0;
+  // }
+  // // DetermineAmotor RPM using wheel RPM
+  // motor_rpm_A = wheel_rpm_A * GEAR_RATIO;
+  // motor_rpm_B = wheel_rpm_B * GEAR_RATIO;
 
-  // account for very slow speed (less than 1 full rotation) by constraining RPM to be greater than 0
-  if(motor_rpm_A == 0){
-    motor_rpm_A = 4;
-  }
+  // // account for very slow speed (less than 1 full rotation) by constraining RPM to be greater than 0
+  // if(motor_rpm_A == 0){
+  //   motor_rpm_A = 4;
+  // }
 
-  if (motor_rpm_B == 0){
-    motor_rpm_B = 4;
-  }
+  // if (motor_rpm_B == 0){
+  //   motor_rpm_B = 4;
+  // }
   
 
-  motor_current_A = get_current(analogRead(ISENSEA), analogRead(ISENSEREF), sense_conductance, ISENSEAMP);
-  motor_current_B = get_current(analogRead(ISENSEB), analogRead(ISENSEREF), sense_conductance, ISENSEAMP);
-  motor_volt_A = get_voltage(motor_rpm_A, motor_current_A, R_A, Kv);
-  motor_volt_B = get_voltage(motor_rpm_B, motor_current_B, R_B, Kv);
+  // motor_current_A = get_current(analogRead(ISENSEA), analogRead(ISENSEREF), sense_conductance, ISENSEAMP);
+  // motor_current_B = get_current(analogRead(ISENSEB), analogRead(ISENSEREF), sense_conductance, ISENSEAMP);
+  // motor_volt_A = get_voltage(motor_rpm_A, motor_current_A, R_A, Kv);
+  // motor_volt_B = get_voltage(motor_rpm_B, motor_current_B, R_B, Kv);
 
   //Serial.print("RPM = ");
   //Serial.println(wheel_rpm_A);
@@ -245,15 +238,25 @@ void loop() {
   //Serial.print("VOLT B: ");
   //Serial.println(motor_volt_B);
 
-  // write PWM to both motors 
-  analogWrite(AIN1, throttle_new);
-  analogWrite(BIN1, 0);
+  // read pedal input
+  throttle_new = analogRead(PEDAL);;
 
-  // write 0 to xIN2 to go forward
-  analogWrite(AIN2, 0);
+  // re-map throttle to range 255-0
+  pwm_A = map(throttle_new, 0, 1023, 255, 0);
+ 
+  //throttle_new = constrain(pow(throttle_new, 2) / 255, 0, 255)
+
+  // write PWM to both motors 
+  digitalWrite(AIN1, HIGH);
+  analogWrite(AIN2, pwm_A);
+
+  analogWrite(BIN1, 0);
   analogWrite(BIN2, 0);
 
 }
+
+
+
 double get_voltage(int rpm, int current, int R_m, int Kv) {
   return rpm / Kv + current * R_m;
 }
@@ -263,7 +266,7 @@ double get_current(int dac, int reference, int conductance, int amplification) {
   return (((double) conductance / (double)(1023 * amplification)) * (double) (dac - reference));
 }
 
-void hall_A_ISR(){
+void hall_A_ISR() {
   /*
   Interrupt: Increment hall effect sensor counter on left side
   */
