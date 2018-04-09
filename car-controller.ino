@@ -244,8 +244,11 @@ void loop() {
   // re-map throttle to range 255-0
   pwm_A = map(throttle_new, 0, 1023, 255, 0);
 
-  if (throttle_new < 10) {
+  if (throttle_new < 4) {
+    //sailboat.setHbridge("off");
     pwm_A = 255;
+  } else {
+    //sailboat.setHbridge("on");
   }
  
   //throttle_new = constrain(pow(throttle_new, 2) / 255, 0, 255)
